@@ -242,7 +242,8 @@
 {
   "imports": {
     "@yume-chan/adb": "https://esm.sh/@yume-chan/adb@2.6.4",
-    "@yume-chan/adb-backend-webusb": "https://esm.sh/@yume-chan/adb-backend-webusb@0.0.19",
+    "@yume-chan/adb-credential-web": "https://esm.sh/@yume-chan/adb-credential-web@2.6.4",
+    "@yume-chan/adb-daemon-webusb": "https://esm.sh/@yume-chan/adb-daemon-webusb@2.6.4",
     "@yume-chan/adb-scrcpy": "https://esm.sh/@yume-chan/adb-scrcpy@2.3.2?deps=@yume-chan/scrcpy@2.3.0,@yume-chan/adb@2.6.4",
     "@yume-chan/scrcpy": "https://esm.sh/@yume-chan/scrcpy@2.3.0",
     "@yume-chan/scrcpy-decoder-tinyh264": "https://esm.sh/@yume-chan/scrcpy-decoder-tinyh264@2.1.0",
@@ -255,8 +256,9 @@
 </script>
 
 <script type="module">
-  import { AdbWebUsbBackendManager } from '@yume-chan/adb-backend-webusb';
-  import { Adb } from '@yume-chan/adb';
+  import { Adb, AdbDaemonTransport } from '@yume-chan/adb';
+  import AdbWebCredentialStore from '@yume-chan/adb-credential-web';
+  import { AdbDaemonWebUsbDeviceManager } from '@yume-chan/adb-daemon-webusb';
   import { AdbScrcpyClient, AdbScrcpyOptions2_3 } from '@yume-chan/adb-scrcpy';
   import { ScrcpyOptions2_3 } from '@yume-chan/scrcpy';
   import { TinyH264Decoder } from '@yume-chan/scrcpy-decoder-tinyh264';
@@ -265,6 +267,7 @@
     let adb, scrcpyClient;
     const canvas = document.getElementById('stream-canvas');
     const ctx = canvas ? canvas.getContext('2d') : null;
+    const CredentialStore = new AdbWebCredentialStore(); // Instantiates the secure RSA key storage
 
     if (!canvas || !ctx) {
       console.error('Canvas initialization failed.');
@@ -278,26 +281,27 @@
     const statusIndicator = document.getElementById('status-indicator');
 
     const keycodeMap = {
-      'Backspace': 67,
-      'Enter': 66,
-      'Tab': 61,
-      'Space': 62,
-      'Escape': 4,
-      'ArrowLeft': 21,
-      'ArrowRight': 22,
-      'ArrowUp': 19,
-      'ArrowDown': 20,
-      'Delete': 112,
-      'Home': 3
+      'Backspace': 67, 'Enter': 66, 'Tab': 61, 'Space': 62, 'Escape': 4,
+      'ArrowLeft': 21, 'ArrowRight': 22, 'ArrowUp': 19, 'ArrowDown': 20,
+      'Delete': 112, 'Home': 3
     };
 
     btnConnect.addEventListener('click', async () => {
       try {
-        const backend = await AdbWebUsbBackendManager.BROWSER.requestDevice();
+        // v2 syntax for WebUSB Device Manager
+        const backend = await AdbDaemonWebUsbDeviceManager.BROWSER.requestDevice();
         if (!backend) return;
 
         const connection = await backend.connect();
-        adb = new Adb(connection);
+        
+        // v2 syntax for authenticating and creating the ADB instance
+        adb = new Adb(
+          await AdbDaemonTransport.authenticate({
+            serial: backend.serial,
+            connection,
+            credentialStore: CredentialStore,
+          })
+        );
 
         const serverResponse = await fetch('https://cdn.jsdelivr.net/npm/@yume-chan/scrcpy@2.3.0/bin/scrcpy-server');
         const serverBuffer = await serverResponse.arrayBuffer();
@@ -306,18 +310,17 @@
           maxSize: parseInt(document.getElementById('opt-resolution').value),
           bitRate: parseInt(document.getElementById('opt-bitrate').value),
           maxFps: parseInt(document.getElementById('opt-fps').value),
+          audio: document.getElementById('opt-audio').value === 'true',
           tunnelForward: false,
           control: true,
           turnScreenOff: document.getElementById('opt-screenoff').value === 'true'
         });
 
-        // Guard against undefined features property across module boundaries
         if (!scrcpyOptions.features) {
           scrcpyOptions.features = [];
         }
 
         const options = new AdbScrcpyOptions2_3(scrcpyOptions);
-
         scrcpyClient = await AdbScrcpyClient.start(adb, serverBuffer, options);
 
         overlay.style.display = 'none';
@@ -365,22 +368,35 @@
       canvas.focus();
       sendTouch(e);
     });
-    canvas.addEventListener('pointermove', (e) => { if (e.buttons === 1) sendTouch(e); });
+    canvas.addEventListener('pointermove', (e) => { 
+      if (e.buttons === 1) sendTouch(e); 
+    });
+    canvas.addEventListener('pointerup', sendTouch);
+    canvas.addEventListener('pointercancel', sendTouch);
 
     function sendTouch(e) {
       if (!scrcpyClient?.controller) return;
       
       const rect = canvas.getBoundingClientRect();
-      const x = (e.clientX - rect.left) / rect.width;
-      const y = (e.clientY - rect.top) / rect.height;
+      const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+
+      let action = 2;
+      if (e.type === 'pointerdown') action = 0;
+      else if (e.type === 'pointerup' || e.type === 'pointercancel') action = 1;
 
       scrcpyClient.controller.injectTouch({
-        action: e.type === 'pointerdown' ? 0 : 2,
+        action: action,
         pointerId: 0n,
-        position: { x: x * canvas.width, y: y * canvas.height },
-        pressure: 1.0,
+        position: { 
+          x: Math.round(x * canvas.width), 
+          y: Math.round(y * canvas.height),
+          screenWidth: canvas.width,
+          screenHeight: canvas.height
+        },
+        pressure: action === 1 ? 0 : 1.0,
         actionButton: 1,
-        buttons: 1
+        buttons: action === 1 ? 0 : 1
       });
     }
 
