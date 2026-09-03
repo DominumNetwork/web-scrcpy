@@ -238,18 +238,19 @@
     </div>
   </main>
   
+<!-- Import Map with pinned @yume-chan versions -->
 <script type="importmap">
 {
   "imports": {
-    "@yume-chan/adb": "https://cdn.jsdelivr.net/npm/@yume-chan/adb/+esm",
-    "@yume-chan/adb-backend-webusb": "https://cdn.jsdelivr.net/npm/@yume-chan/adb-backend-webusb/+esm",
-    "@yume-chan/adb-scrcpy": "https://cdn.jsdelivr.net/npm/@yume-chan/adb-scrcpy/+esm",
-    "@yume-chan/scrcpy": "https://cdn.jsdelivr.net/npm/@yume-chan/scrcpy/+esm",
-    "@yume-chan/scrcpy-decoder-tinyh264": "https://cdn.jsdelivr.net/npm/@yume-chan/scrcpy-decoder-tinyh264/+esm",
-    "@yume-chan/async": "https://cdn.jsdelivr.net/npm/@yume-chan/async/+esm",
-    "@yume-chan/event": "https://cdn.jsdelivr.net/npm/@yume-chan/event/+esm",
-    "@yume-chan/stream-extra": "https://cdn.jsdelivr.net/npm/@yume-chan/stream-extra/+esm",
-    "@yume-chan/struct": "https://cdn.jsdelivr.net/npm/@yume-chan/struct/+esm"
+    "@yume-chan/adb": "https://cdn.jsdelivr.net/npm/@yume-chan/adb@0.0.22/+esm",
+    "@yume-chan/adb-backend-webusb": "https://cdn.jsdelivr.net/npm/@yume-chan/adb-backend-webusb@0.0.22/+esm",
+    "@yume-chan/adb-scrcpy": "https://cdn.jsdelivr.net/npm/@yume-chan/adb-scrcpy@0.0.22/+esm",
+    "@yume-chan/scrcpy": "https://cdn.jsdelivr.net/npm/@yume-chan/scrcpy@0.0.22/+esm",
+    "@yume-chan/scrcpy-decoder-tinyh264": "https://cdn.jsdelivr.net/npm/@yume-chan/scrcpy-decoder-tinyh264@0.0.22/+esm",
+    "@yume-chan/async": "https://cdn.jsdelivr.net/npm/@yume-chan/async@0.0.22/+esm",
+    "@yume-chan/event": "https://cdn.jsdelivr.net/npm/@yume-chan/event@0.0.22/+esm",
+    "@yume-chan/stream-extra": "https://cdn.jsdelivr.net/npm/@yume-chan/stream-extra@0.0.22/+esm",
+    "@yume-chan/struct": "https://cdn.jsdelivr.net/npm/@yume-chan/struct@0.0.22/+esm"
   }
 }
 </script>
@@ -257,7 +258,7 @@
 <script type="module">
   import { AdbWebUsbBackendManager } from '@yume-chan/adb-backend-webusb';
   import { Adb } from '@yume-chan/adb';
-  import { AdbScrcpyClient, AdbScrcpyOptions } from '@yume-chan/adb-scrcpy';
+  import { AdbScrcpyClient, AdbScrcpyOptions2_0 } from '@yume-chan/adb-scrcpy';
   import { ScrcpyOptions2_0 } from '@yume-chan/scrcpy';
   import { TinyH264Decoder } from '@yume-chan/scrcpy-decoder-tinyh264';
 
@@ -298,6 +299,8 @@
 
         const connection = await backend.connect();
         adb = new Adb(connection);
+
+        // Fetch official scrcpy-server v2.0 binary matching ScrcpyOptions2_0 / AdbScrcpyOptions2_0
         const serverResponse = await fetch('https://cdn.jsdelivr.net/npm/@yume-chan/scrcpy@2.0.0/bin/scrcpy-server');
         const serverBuffer = await serverResponse.arrayBuffer();
 
@@ -310,7 +313,7 @@
           turnScreenOff: document.getElementById('opt-screenoff').value === 'true'
         });
 
-        const options = new AdbScrcpyOptions(scrcpyOptions);
+        const options = new AdbScrcpyOptions2_0(scrcpyOptions);
 
         scrcpyClient = await AdbScrcpyClient.start(adb, serverBuffer, options);
 
