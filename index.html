@@ -239,11 +239,11 @@
   </main>
 
   <script type="module">
-  import { AdbWebUsbBackendManager } from 'https://esm.sh/@yume-chan/adb-backend-webusb@3.1.0';
-  import { Adb } from 'https://esm.sh/@yume-chan/adb@3.1.0';
-  import { AdbScrcpyClient, AdbScrcpyOptions3_1 } from 'https://esm.sh/@yume-chan/adb-scrcpy@3.1.0';
-  import { ScrcpyOptions3_1 } from 'https://esm.sh/@yume-chan/scrcpy@3.1.0';
-  import { TinyH264Decoder } from 'https://esm.sh/@yume-chan/scrcpy-decoder-tinyh264@3.1.0';
+  import { AdbWebUsbBackendManager } from 'https://esm.sh/@yume-chan/adb-backend-webusb';
+  import { Adb } from 'https://esm.sh/@yume-chan/adb';
+  import { AdbScrcpyClient, AdbScrcpyOptions3_1 } from 'https://esm.sh/@yume-chan/adb-scrcpy';
+  import { ScrcpyOptions3_1 } from 'https://esm.sh/@yume-chan/scrcpy';
+  import { TinyH264Decoder } from 'https://esm.sh/@yume-chan/scrcpy-decoder-tinyh264';
 
   document.addEventListener('DOMContentLoaded', () => {
     let adb, scrcpyClient;
@@ -283,6 +283,7 @@
         const connection = await backend.connect();
         adb = new Adb(connection);
 
+        // Fetch the official scrcpy-server v3.1 binary
         const serverResponse = await fetch('https://cdn.jsdelivr.net/npm/@yume-chan/scrcpy@3.1.0/bin/scrcpy-server');
         const serverBuffer = await serverResponse.arrayBuffer();
 
