@@ -65,6 +65,12 @@
       background-color: #22c55e;
     }
 
+    .connection-message {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      max-width: 22rem;
+    }
+
     .controls-group {
       display: flex;
       align-items: center;
@@ -217,6 +223,7 @@
       <button id="btn-connect">Connect Device</button>
       <button id="btn-disconnect" class="btn-danger" style="display: none;">Disconnect</button>
       <button id="btn-fullscreen">Fullscreen</button>
+      <span id="connection-message" class="connection-message" role="status" aria-live="polite"></span>
     </div>
   </header>
 
@@ -244,9 +251,9 @@
     "@yume-chan/adb": "https://esm.sh/@yume-chan/adb@2.6.3?deps=@yume-chan/struct@2.3.2,@yume-chan/stream-extra@2.6.1,@yume-chan/event@2.0.0",
     "@yume-chan/adb-credential-web": "https://esm.sh/@yume-chan/adb-credential-web@2.1.0?deps=@yume-chan/adb@2.6.3",
     "@yume-chan/adb-daemon-webusb": "https://esm.sh/@yume-chan/adb-daemon-webusb@2.3.2?deps=@yume-chan/adb@2.6.3,@yume-chan/stream-extra@2.6.1",
-    "@yume-chan/adb-scrcpy": "https://esm.sh/@yume-chan/adb-scrcpy@2.3.2?deps=@yume-chan/scrcpy@2.3.0,@yume-chan/adb@2.6.3,@yume-chan/struct@2.3.2",
-    "@yume-chan/scrcpy": "https://esm.sh/@yume-chan/scrcpy@2.3.0?deps=@yume-chan/struct@2.3.2,@yume-chan/stream-extra@2.6.1",
-    "@yume-chan/scrcpy-decoder-tinyh264": "https://esm.sh/@yume-chan/scrcpy-decoder-tinyh264@2.1.0?deps=@yume-chan/scrcpy@2.3.0",
+    "@yume-chan/adb-scrcpy": "https://esm.sh/@yume-chan/adb-scrcpy@2.3.2?bundle&target=es2022",
+    "@yume-chan/scrcpy": "https://esm.sh/@yume-chan/scrcpy@2.3.0?bundle&target=es2022",
+    "@yume-chan/scrcpy-decoder-tinyh264": "https://esm.sh/@yume-chan/scrcpy-decoder-tinyh264@2.1.0?bundle&target=es2022",
     "@yume-chan/async": "https://esm.sh/@yume-chan/async@4.1.3",
     "@yume-chan/event": "https://esm.sh/@yume-chan/event@2.0.0",
     "@yume-chan/stream-extra": "https://esm.sh/@yume-chan/stream-extra@2.6.1?deps=@yume-chan/async@4.1.3",
@@ -279,6 +286,11 @@
     const overlay = document.getElementById('overlay');
     const navDock = document.getElementById('nav-dock');
     const statusIndicator = document.getElementById('status-indicator');
+    const connectionMessage = document.getElementById('connection-message');
+
+    function setConnectionMessage(message) {
+      connectionMessage.textContent = message;
+    }
 
     const keycodeMap = {
       'Backspace': 67, 'Enter': 66, 'Tab': 61, 'Space': 62, 'Escape': 4,
@@ -287,12 +299,17 @@
     };
 
     btnConnect.addEventListener('click', async () => {
+      btnConnect.disabled = true;
+      setConnectionMessage('Choose your phone in the browser prompt. Keep it unlocked.');
+      let connection;
+
       try {
         // v2 syntax for WebUSB Device Manager
         const backend = await AdbDaemonWebUsbDeviceManager.BROWSER.requestDevice();
         if (!backend) return;
 
-        const connection = await backend.connect();
+        connection = await backend.connect();
+        setConnectionMessage('Waiting for the USB debugging authorization on your phone…');
         
         // v2 syntax for authenticating and creating the ADB instance
         adb = new Adb(
@@ -328,6 +345,7 @@
         btnConnect.style.display = 'none';
         btnDisconnect.style.display = 'inline-block';
         statusIndicator.classList.add('connected');
+        setConnectionMessage('Connected.');
 
         if (scrcpyClient.videoStream) {
           const decoder = new TinyH264Decoder();
@@ -340,8 +358,23 @@
           });
         }
       } catch (err) {
-        alert(`Connection Failed: ${err.message}`);
+        const isAuthenticationError = err?.message?.includes('No authenticator can handle the request');
+        const message = isAuthenticationError
+          ? 'USB debugging authorization was not accepted. Unlock your phone and accept “Allow USB debugging”. If no prompt appears, revoke USB debugging authorizations in Developer options, reconnect the cable, and try again.'
+          : `Connection failed: ${err.message || 'Unknown error'}`;
+
+        setConnectionMessage(message);
+        alert(message);
         console.error(err);
+      } finally {
+        if (!scrcpyClient) {
+          // An unsuccessful authentication leaves the WebUSB connection open.
+          // Close it so the user can correct the phone authorization and retry.
+          await adb?.close();
+          await connection?.close();
+          adb = undefined;
+          btnConnect.disabled = false;
+        }
       }
     });
 
@@ -354,6 +387,7 @@
       btnConnect.style.display = 'inline-block';
       btnDisconnect.style.display = 'none';
       statusIndicator.classList.remove('connected');
+      setConnectionMessage('Disconnected.');
     });
 
     document.getElementById('btn-fullscreen').addEventListener('click', () => {
