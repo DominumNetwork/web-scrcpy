@@ -292,6 +292,15 @@
       connectionMessage.textContent = message;
     }
 
+    function withTimeout(promise, milliseconds, timeoutMessage) {
+      let timer;
+      const timeout = new Promise((_, reject) => {
+        timer = window.setTimeout(() => reject(new Error(timeoutMessage)), milliseconds);
+      });
+
+      return Promise.race([promise, timeout]).finally(() => window.clearTimeout(timer));
+    }
+
     const keycodeMap = {
       'Backspace': 67, 'Enter': 66, 'Tab': 61, 'Space': 62, 'Escape': 4,
       'ArrowLeft': 21, 'ArrowRight': 22, 'ArrowUp': 19, 'ArrowDown': 20,
@@ -313,11 +322,15 @@
         
         // v2 syntax for authenticating and creating the ADB instance
         adb = new Adb(
-          await AdbDaemonTransport.authenticate({
-            serial: backend.serial,
-            connection,
-            credentialStore: CredentialStore,
-          })
+          await withTimeout(
+            AdbDaemonTransport.authenticate({
+              serial: backend.serial,
+              connection,
+              credentialStore: CredentialStore,
+            }),
+            30000,
+            'Timed out waiting for Android to show the USB debugging authorization request.'
+          )
         );
 
         const serverResponse = await fetch('https://cdn.jsdelivr.net/npm/@yume-chan/scrcpy@2.3.0/bin/scrcpy-server');
@@ -359,8 +372,9 @@
         }
       } catch (err) {
         const isAuthenticationError = err?.message?.includes('No authenticator can handle the request');
-        const message = isAuthenticationError
-          ? 'USB debugging authorization was not accepted. Unlock your phone and accept “Allow USB debugging”. If no prompt appears, revoke USB debugging authorizations in Developer options, reconnect the cable, and try again.'
+        const isAuthorizationTimeout = err?.message?.includes('Timed out waiting for Android');
+        const message = isAuthenticationError || isAuthorizationTimeout
+          ? 'Android did not complete USB debugging authorization. On your phone, unlock it, open Developer options, tap “Revoke USB debugging authorizations”, unplug and reconnect the data cable, then accept “Allow USB debugging” when it appears. If it still does not appear, switch the USB mode from Charge only to File transfer.'
           : `Connection failed: ${err.message || 'Unknown error'}`;
 
         setConnectionMessage(message);
