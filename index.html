@@ -1,385 +1,150 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Web Scrcpy</title>
-  <style>
-    :root {
-      --bg-dark: #0f172a;
-      --bg-panel: #1e293b;
-      --bg-input: #334155;
-      --accent: #3b82f6;
-      --accent-hover: #2563eb;
-      --danger: #ef4444;
-      --text-main: #f8fafc;
-      --text-muted: #94a3b8;
-      --border: #475569;
-    }
+<script type="module">
+  import { AdbWebUsbBackendManager } from 'https://cdn.jsdelivr.net/npm/@yume-chan/adb-backend-webusb/+esm';
+  import { Adb } from 'https://cdn.jsdelivr.net/npm/@yume-chan/adb/+esm';
+  import { AdbScrcpyClient, AdbScrcpyOptions3_1 } from 'https://cdn.jsdelivr.net/npm/@yume-chan/adb-scrcpy/+esm';
+  import { ScrcpyOptions3_1 } from 'https://cdn.jsdelivr.net/npm/@yume-chan/scrcpy/+esm';
+  import { TinyH264Decoder } from 'https://cdn.jsdelivr.net/npm/@yume-chan/scrcpy-decoder-tinyh264/+esm';
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: system-ui, -apple-system, sans-serif;
-    }
+  let adb, scrcpyClient;
+  const canvas = document.getElementById('stream-canvas');
+  const ctx = canvas.getContext('2d');
 
-    body {
-      background-color: var(--bg-dark);
-      color: var(--text-main);
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
+  const btnConnect = document.getElementById('btn-connect');
+  const btnDisconnect = document.getElementById('btn-disconnect');
+  const overlay = document.getElementById('overlay');
+  const navDock = document.getElementById('nav-dock');
+  const statusIndicator = document.getElementById('status-indicator');
 
-    header {
-      background-color: var(--bg-panel);
-      border-bottom: 1px solid var(--border);
-      padding: 0.75rem 1.25rem;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      z-index: 10;
-    }
+  const keycodeMap = {
+    'Backspace': 67,
+    'Enter': 66,
+    'Tab': 61,
+    'Space': 62,
+    'Escape': 4,
+    'ArrowLeft': 21,
+    'ArrowRight': 22,
+    'ArrowUp': 19,
+    'ArrowDown': 20,
+    'Delete': 112,
+    'Home': 3
+  };
 
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-weight: 700;
-      font-size: 1.1rem;
-    }
+  btnConnect.addEventListener('click', async () => {
+    try {
+      const backend = await AdbWebUsbBackendManager.BROWSER.requestDevice();
+      if (!backend) return;
 
-    .status-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background-color: var(--danger);
-      transition: background 0.3s;
-    }
+      const connection = await backend.connect();
+      adb = new Adb(connection);
 
-    .status-dot.connected {
-      background-color: #22c55e;
-    }
+      // Fetch the official scrcpy-server v3.1 binary
+      const serverResponse = await fetch('https://cdn.jsdelivr.net/npm/@yume-chan/scrcpy@3.1.0/bin/scrcpy-server');
+      const serverBuffer = await serverResponse.arrayBuffer();
 
-    .controls-group {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      flex-wrap: wrap;
-    }
-
-    label {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      display: flex;
-      flex-direction: column;
-      gap: 0.25rem;
-    }
-
-    select, input, button {
-      background-color: var(--bg-input);
-      color: var(--text-main);
-      border: 1px solid var(--border);
-      padding: 0.4rem 0.75rem;
-      border-radius: 0.375rem;
-      font-size: 0.85rem;
-      outline: none;
-    }
-
-    button {
-      background-color: var(--accent);
-      border: none;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-
-    button:hover {
-      background-color: var(--accent-hover);
-    }
-
-    button.btn-danger {
-      background-color: var(--danger);
-    }
-
-    main {
-      flex: 1;
-      display: flex;
-      position: relative;
-      background-color: #000;
-      align-items: center;
-      justify-content: center;
-    }
-
-    #stream-canvas {
-      max-width: 100%;
-      max-height: 100%;
-      object-fit: contain;
-      cursor: pointer;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-    }
-
-    .nav-dock {
-      position: absolute;
-      bottom: 1.5rem;
-      background: rgba(30, 41, 59, 0.85);
-      backdrop-filter: blur(8px);
-      border: 1px solid var(--border);
-      border-radius: 9999px;
-      padding: 0.5rem 1rem;
-      display: flex;
-      gap: 1rem;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-    }
-
-    .nav-btn {
-      background: transparent;
-      border: none;
-      color: var(--text-main);
-      font-size: 1.1rem;
-      padding: 0.4rem 0.8rem;
-      border-radius: 50%;
-      cursor: pointer;
-    }
-
-    .nav-btn:hover {
-      background-color: var(--bg-input);
-    }
-
-    #overlay {
-      position: absolute;
-      inset: 0;
-      background: rgba(15, 23, 42, 0.9);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 1rem;
-      text-align: center;
-      padding: 2rem;
-    }
-  </style>
-</head>
-<body>
-
-  <header>
-    <div class="brand">
-      <div id="status-indicator" class="status-dot"></div>
-      <span>WebADB Mirror</span>
-    </div>
-
-    <div class="controls-group">
-      <label>Max Resolution
-        <select id="opt-resolution">
-          <option value="0">Native (Full HD+)</option>
-          <option value="1280" selected>1280p (Recommended)</option>
-          <option value="1024">1024p</option>
-          <option value="720">720p (Fastest)</option>
-        </select>
-      </label>
-
-      <label>Bitrate
-        <select id="opt-bitrate">
-          <option value="8000000" selected>8 Mbps</option>
-          <option value="4000000">4 Mbps</option>
-          <option value="2000000">2 Mbps</option>
-        </select>
-      </label>
-
-      <label>Max FPS
-        <select id="opt-fps">
-          <option value="0" selected>Unlimited</option>
-          <option value="60">60 FPS</option>
-          <option value="30">30 FPS</option>
-        </select>
-      </label>
-
-      <label>Audio Forwarding
-        <select id="opt-audio">
-          <option value="true" selected>Enabled (Android 11+)</option>
-          <option value="false">Disabled</option>
-        </select>
-      </label>
-
-      <label>Turn Off Phone Screen
-        <select id="opt-screenoff">
-          <option value="false" selected>Keep On</option>
-          <option value="true">Turn Off Screen</option>
-        </select>
-      </label>
-    </div>
-
-    <div class="controls-group">
-      <button id="btn-connect">Connect Device</button>
-      <button id="btn-disconnect" class="btn-danger" style="display: none;">Disconnect</button>
-      <button id="btn-fullscreen">Fullscreen</button>
-    </div>
-  </header>
-
-  <main>
-    <div id="overlay">
-      <h2>No Device Connected</h2>
-      <p style="color: var(--text-muted); max-width: 400px;">Plug in your Android phone via USB, enable USB Debugging in Developer Options, then click Connect Device above.</p>
-    </div>
-    
-    <canvas id="stream-canvas" tabindex="0"></canvas>
-
-    <div class="nav-dock" id="nav-dock" style="display: none;">
-      <button class="nav-btn" id="nav-back" title="Back">◀</button>
-      <button class="nav-btn" id="nav-home" title="Home">●</button>
-      <button class="nav-btn" id="nav-recents" title="Recents">■</button>
-      <button class="nav-btn" id="nav-power" title="Power Button">⏻</button>
-      <button class="nav-btn" id="nav-volup" title="Volume Up">🔊</button>
-      <button class="nav-btn" id="nav-voldown" title="Volume Down">🔉</button>
-    </div>
-  </main>
-
-  <script type="module">
-    import { AdbWebUsbBackendManager } from 'https://cdn.jsdelivr.net/npm/@yume-chan/adb-backend-webusb/+esm';
-    import { Adb } from 'https://cdn.jsdelivr.net/npm/@yume-chan/adb/+esm';
-    import { ScrcpyOptions3_1, ScrcpyClient } from 'https://cdn.jsdelivr.net/npm/@yume-chan/scrcpy/+esm';
-    import { TinyH264Decoder } from 'https://cdn.jsdelivr.net/npm/@yume-chan/scrcpy-decoder-tinyh264/+esm';
-
-    let adb, scrcpyClient;
-    const canvas = document.getElementById('stream-canvas');
-    const ctx = canvas.getContext('2d');
-
-    const btnConnect = document.getElementById('btn-connect');
-    const btnDisconnect = document.getElementById('btn-disconnect');
-    const overlay = document.getElementById('overlay');
-    const navDock = document.getElementById('nav-dock');
-    const statusIndicator = document.getElementById('status-indicator');
-
-    const keycodeMap = {
-      'Backspace': 67,
-      'Enter': 66,
-      'Tab': 61,
-      'Space': 62,
-      'Escape': 4,
-      'ArrowLeft': 21,
-      'ArrowRight': 22,
-      'ArrowUp': 19,
-      'ArrowDown': 20,
-      'Delete': 112,
-      'Home': 3
-    };
-
-    btnConnect.addEventListener('click', async () => {
-      try {
-        const backend = await AdbWebUsbBackendManager.BROWSER.requestDevice();
-        if (!backend) return;
-
-        const connection = await backend.connect();
-        adb = new Adb(connection);
-
-        const options = new ScrcpyOptions3_1({
+      const options = new AdbScrcpyOptions3_1(
+        new ScrcpyOptions3_1({
           maxSize: parseInt(document.getElementById('opt-resolution').value),
           bitRate: parseInt(document.getElementById('opt-bitrate').value),
           maxFps: parseInt(document.getElementById('opt-fps').value),
           audio: document.getElementById('opt-audio').value === 'true',
           control: true,
           turnScreenOff: document.getElementById('opt-screenoff').value === 'true'
+        })
+      );
+
+      scrcpyClient = await AdbScrcpyClient.start(adb, serverBuffer, options);
+
+      overlay.style.display = 'none';
+      navDock.style.display = 'flex';
+      btnConnect.style.display = 'none';
+      btnDisconnect.style.display = 'inline-block';
+      statusIndicator.classList.add('connected');
+
+      if (scrcpyClient.videoStream) {
+        const decoder = new TinyH264Decoder();
+        scrcpyClient.videoStream.pipeTo(decoder.writable);
+        
+        decoder.renderer.onFrame((frame) => {
+          canvas.width = frame.width;
+          canvas.height = frame.height;
+          ctx.drawImage(frame, 0, 0);
         });
-
-        overlay.style.display = 'none';
-        navDock.style.display = 'flex';
-        btnConnect.style.display = 'none';
-        btnDisconnect.style.display = 'inline-block';
-        statusIndicator.classList.add('connected');
-
-        scrcpyClient = await ScrcpyClient.start(adb, options);
-
-        if (scrcpyClient.videoStream) {
-          const decoder = new TinyH264Decoder();
-          scrcpyClient.videoStream.pipeTo(decoder.writable);
-          
-          decoder.renderer.onFrame((frame) => {
-            canvas.width = frame.width;
-            canvas.height = frame.height;
-            ctx.drawImage(frame, 0, 0);
-          });
-        }
-      } catch (err) {
-        alert(`Connection Failed: ${err.message}`);
-        console.error(err);
       }
-    });
-
-    btnDisconnect.addEventListener('click', async () => {
-      if (scrcpyClient) await scrcpyClient.close();
-      if (adb) await adb.close();
-      
-      overlay.style.display = 'flex';
-      navDock.style.display = 'none';
-      btnConnect.style.display = 'inline-block';
-      btnDisconnect.style.display = 'none';
-      statusIndicator.classList.remove('connected');
-    });
-
-    document.getElementById('btn-fullscreen').addEventListener('click', () => {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen();
-      } else {
-        document.exitFullscreen();
-      }
-    });
-
-    canvas.addEventListener('pointerdown', (e) => {
-      canvas.focus();
-      sendTouch(e);
-    });
-    canvas.addEventListener('pointermove', (e) => { if (e.buttons === 1) sendTouch(e); });
-
-    function sendTouch(e) {
-      if (!scrcpyClient?.controller) return;
-      
-      const rect = canvas.getBoundingClientRect();
-      const x = (e.clientX - rect.left) / rect.width;
-      const y = (e.clientY - rect.top) / rect.height;
-
-      scrcpyClient.controller.injectTouch({
-        action: e.type === 'pointerdown' ? 0 : 2,
-        pointerId: 0n,
-        position: { x: x * canvas.width, y: y * canvas.height },
-        pressure: 1.0,
-        actionButton: 1,
-        buttons: 1
-      });
+    } catch (err) {
+      alert(`Connection Failed: ${err.message}`);
+      console.error(err);
     }
+  });
 
-    window.addEventListener('keydown', (e) => {
-      if (!scrcpyClient?.controller) return;
-      if (['INPUT', 'SELECT', 'BUTTON'].includes(document.activeElement.tagName)) return;
+  btnDisconnect.addEventListener('click', async () => {
+    if (scrcpyClient) await scrcpyClient.close();
+    if (adb) await adb.close();
+    
+    overlay.style.display = 'flex';
+    navDock.style.display = 'none';
+    btnConnect.style.display = 'inline-block';
+    btnDisconnect.style.display = 'none';
+    statusIndicator.classList.remove('connected');
+  });
 
-      const code = keycodeMap[e.key] || keycodeMap[e.code];
-
-      if (code) {
-        e.preventDefault();
-        scrcpyClient.controller.injectKeyCode({ action: 0, keyCode: code, repeat: 0, metaState: 0 });
-        scrcpyClient.controller.injectKeyCode({ action: 1, keyCode: code, repeat: 0, metaState: 0 });
-      } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        e.preventDefault();
-        scrcpyClient.controller.injectText(e.key);
-      }
-    });
-
-    document.getElementById('nav-back').onclick = () => sendKey(4);
-    document.getElementById('nav-home').onclick = () => sendKey(3);
-    document.getElementById('nav-recents').onclick = () => sendKey(187);
-    document.getElementById('nav-power').onclick = () => sendKey(26);
-    document.getElementById('nav-volup').onclick = () => sendKey(24);
-    document.getElementById('nav-voldown').onclick = () => sendKey(25);
-
-    function sendKey(keyCode) {
-      if (scrcpyClient?.controller) {
-        scrcpyClient.controller.injectKeyCode({ action: 0, keyCode, repeat: 0, metaState: 0 });
-        scrcpyClient.controller.injectKeyCode({ action: 1, keyCode, repeat: 0, metaState: 0 });
-      }
+  document.getElementById('btn-fullscreen').addEventListener('click', () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen();
+    } else {
+      document.exitFullscreen();
     }
-  </script>
-</body>
-</html>
+  });
+
+  canvas.addEventListener('pointerdown', (e) => {
+    canvas.focus();
+    sendTouch(e);
+  });
+  canvas.addEventListener('pointermove', (e) => { if (e.buttons === 1) sendTouch(e); });
+
+  function sendTouch(e) {
+    if (!scrcpyClient?.controller) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+
+    scrcpyClient.controller.injectTouch({
+      action: e.type === 'pointerdown' ? 0 : 2,
+      pointerId: 0n,
+      position: { x: x * canvas.width, y: y * canvas.height },
+      pressure: 1.0,
+      actionButton: 1,
+      buttons: 1
+    });
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if (!scrcpyClient?.controller) return;
+    if (['INPUT', 'SELECT', 'BUTTON'].includes(document.activeElement.tagName)) return;
+
+    const code = keycodeMap[e.key] || keycodeMap[e.code];
+
+    if (code) {
+      e.preventDefault();
+      scrcpyClient.controller.injectKeyCode({ action: 0, keyCode: code, repeat: 0, metaState: 0 });
+      scrcpyClient.controller.injectKeyCode({ action: 1, keyCode: code, repeat: 0, metaState: 0 });
+    } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      scrcpyClient.controller.injectText(e.key);
+    }
+  });
+
+  document.getElementById('nav-back').onclick = () => sendKey(4);
+  document.getElementById('nav-home').onclick = () => sendKey(3);
+  document.getElementById('nav-recents').onclick = () => sendKey(187);
+  document.getElementById('nav-power').onclick = () => sendKey(26);
+  document.getElementById('nav-volup').onclick = () => sendKey(24);
+  document.getElementById('nav-voldown').onclick = () => sendKey(25);
+
+  function sendKey(keyCode) {
+    if (scrcpyClient?.controller) {
+      scrcpyClient.controller.injectKeyCode({ action: 0, keyCode, repeat: 0, metaState: 0 });
+      scrcpyClient.controller.injectKeyCode({ action: 1, keyCode, repeat: 0, metaState: 0 });
+    }
+  }
+</script>
