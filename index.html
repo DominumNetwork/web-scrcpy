@@ -237,13 +237,29 @@
       <button class="nav-btn" id="nav-voldown" title="Volume Down">🔉</button>
     </div>
   </main>
+  
+<script type="importmap">
+{
+  "imports": {
+    "@yume-chan/adb": "https://cdn.jsdelivr.net/npm/@yume-chan/adb/+esm",
+    "@yume-chan/adb-backend-webusb": "https://cdn.jsdelivr.net/npm/@yume-chan/adb-backend-webusb/+esm",
+    "@yume-chan/adb-scrcpy": "https://cdn.jsdelivr.net/npm/@yume-chan/adb-scrcpy/+esm",
+    "@yume-chan/scrcpy": "https://cdn.jsdelivr.net/npm/@yume-chan/scrcpy/+esm",
+    "@yume-chan/scrcpy-decoder-tinyh264": "https://cdn.jsdelivr.net/npm/@yume-chan/scrcpy-decoder-tinyh264/+esm",
+    "@yume-chan/async": "https://cdn.jsdelivr.net/npm/@yume-chan/async/+esm",
+    "@yume-chan/event": "https://cdn.jsdelivr.net/npm/@yume-chan/event/+esm",
+    "@yume-chan/stream-extra": "https://cdn.jsdelivr.net/npm/@yume-chan/stream-extra/+esm",
+    "@yume-chan/struct": "https://cdn.jsdelivr.net/npm/@yume-chan/struct/+esm"
+  }
+}
+</script>
 
-  <script type="module">
-  import { AdbWebUsbBackendManager } from 'https://jspm.dev/@yume-chan/adb-backend-webusb';
-  import { Adb } from 'https://jspm.dev/@yume-chan/adb';
-  import { AdbScrcpyClient, AdbScrcpyOptions3_1 } from 'https://jspm.dev/@yume-chan/adb-scrcpy';
-  import { ScrcpyOptions3_1 } from 'https://jspm.dev/@yume-chan/scrcpy';
-  import { TinyH264Decoder } from 'https://jspm.dev/@yume-chan/scrcpy-decoder-tinyh264';
+<script type="module">
+  import { AdbWebUsbBackendManager } from '@yume-chan/adb-backend-webusb';
+  import { Adb } from '@yume-chan/adb';
+  import { AdbScrcpyClient, AdbScrcpyOptions } from '@yume-chan/adb-scrcpy';
+  import { ScrcpyOptions2_0 } from '@yume-chan/scrcpy';
+  import { TinyH264Decoder } from '@yume-chan/scrcpy-decoder-tinyh264';
 
   document.addEventListener('DOMContentLoaded', () => {
     let adb, scrcpyClient;
@@ -282,12 +298,10 @@
 
         const connection = await backend.connect();
         adb = new Adb(connection);
-
-        // Fetch official scrcpy-server v3.1 binary
-        const serverResponse = await fetch('https://cdn.jsdelivr.net/npm/@yume-chan/scrcpy@3.1.0/bin/scrcpy-server');
+        const serverResponse = await fetch('https://cdn.jsdelivr.net/npm/@yume-chan/scrcpy@2.0.0/bin/scrcpy-server');
         const serverBuffer = await serverResponse.arrayBuffer();
 
-        const scrcpyOptions = new ScrcpyOptions3_1({
+        const scrcpyOptions = new ScrcpyOptions2_0({
           maxSize: parseInt(document.getElementById('opt-resolution').value),
           bitRate: parseInt(document.getElementById('opt-bitrate').value),
           maxFps: parseInt(document.getElementById('opt-fps').value),
@@ -296,7 +310,7 @@
           turnScreenOff: document.getElementById('opt-screenoff').value === 'true'
         });
 
-        const options = new AdbScrcpyOptions3_1(scrcpyOptions);
+        const options = new AdbScrcpyOptions(scrcpyOptions);
 
         scrcpyClient = await AdbScrcpyClient.start(adb, serverBuffer, options);
 
