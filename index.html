@@ -251,8 +251,8 @@
     "@yume-chan/adb": "https://esm.sh/@yume-chan/adb@2.6.3?deps=@yume-chan/struct@2.3.2,@yume-chan/stream-extra@2.6.1,@yume-chan/event@2.0.0",
     "@yume-chan/adb-credential-web": "https://esm.sh/@yume-chan/adb-credential-web@2.1.0?deps=@yume-chan/adb@2.6.3",
     "@yume-chan/adb-daemon-webusb": "https://esm.sh/@yume-chan/adb-daemon-webusb@2.3.2?deps=@yume-chan/adb@2.6.3,@yume-chan/stream-extra@2.6.1",
-    "@yume-chan/adb-scrcpy": "https://esm.sh/@yume-chan/adb-scrcpy@2.3.2?bundle&target=es2022",
-    "@yume-chan/scrcpy": "https://esm.sh/@yume-chan/scrcpy@2.3.0?bundle&target=es2022",
+    "@yume-chan/adb-scrcpy": "https://cdn.jsdelivr.net/npm/@yume-chan/adb-scrcpy@2.3.2/+esm",
+    "@yume-chan/scrcpy": "https://cdn.jsdelivr.net/npm/@yume-chan/scrcpy@2.3.0/+esm",
     "@yume-chan/scrcpy-decoder-tinyh264": "https://esm.sh/@yume-chan/scrcpy-decoder-tinyh264@2.1.0?bundle&target=es2022",
     "@yume-chan/async": "https://esm.sh/@yume-chan/async@4.1.3",
     "@yume-chan/event": "https://esm.sh/@yume-chan/event@2.0.0",
@@ -266,8 +266,13 @@
   import { Adb, AdbDaemonTransport } from '@yume-chan/adb';
   import AdbWebCredentialStore from '@yume-chan/adb-credential-web';
   import { AdbDaemonWebUsbDeviceManager } from '@yume-chan/adb-daemon-webusb';
-  import { AdbScrcpyClient, AdbScrcpyOptions2_3 } from '@yume-chan/adb-scrcpy';
-  import { ScrcpyOptions2_3 } from '@yume-chan/scrcpy';
+  import { AdbScrcpyClient, AdbScrcpyOptions2_1 } from '@yume-chan/adb-scrcpy';
+  import {
+    DefaultServerPath,
+    AndroidMotionEventAction,
+    AndroidMotionEventButton,
+    ScrcpyPointerId,
+  } from '@yume-chan/scrcpy';
   import { TinyH264Decoder } from '@yume-chan/scrcpy-decoder-tinyh264';
 
   document.addEventListener('DOMContentLoaded', () => {
@@ -333,25 +338,25 @@
           )
         );
 
+        setConnectionMessage('Pushing the scrcpy server to your phone…');
         const serverResponse = await fetch('https://cdn.jsdelivr.net/npm/@yume-chan/scrcpy@2.3.0/bin/scrcpy-server');
-        const serverBuffer = await serverResponse.arrayBuffer();
+        // AdbScrcpyClient.pushServer wants a ReadableStream, not an ArrayBuffer -
+        // response.body already is one, so we can pipe it straight through.
+        await AdbScrcpyClient.pushServer(adb, serverResponse.body);
 
-        const scrcpyOptions = new ScrcpyOptions2_3({
+        setConnectionMessage('Starting the scrcpy server…');
+        const options = new AdbScrcpyOptions2_1({
           maxSize: parseInt(document.getElementById('opt-resolution').value),
           bitRate: parseInt(document.getElementById('opt-bitrate').value),
           maxFps: parseInt(document.getElementById('opt-fps').value),
           audio: document.getElementById('opt-audio').value === 'true',
-          tunnelForward: false,
           control: true,
           turnScreenOff: document.getElementById('opt-screenoff').value === 'true'
         });
 
-        if (!scrcpyOptions.features) {
-          scrcpyOptions.features = [];
-        }
-
-        const options = new AdbScrcpyOptions2_3(scrcpyOptions);
-        scrcpyClient = await AdbScrcpyClient.start(adb, serverBuffer, options);
+        // start() takes the on-device PATH the server was pushed to, not the
+        // downloaded bytes themselves - that's what pushServer() was for.
+        scrcpyClient = await AdbScrcpyClient.start(adb, DefaultServerPath, options);
 
         overlay.style.display = 'none';
         navDock.style.display = 'flex';
@@ -429,22 +434,22 @@
       const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
       const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
 
-      let action = 2;
-      if (e.type === 'pointerdown') action = 0;
-      else if (e.type === 'pointerup' || e.type === 'pointercancel') action = 1;
+      let action = AndroidMotionEventAction.Move;
+      if (e.type === 'pointerdown') action = AndroidMotionEventAction.Down;
+      else if (e.type === 'pointerup' || e.type === 'pointercancel') action = AndroidMotionEventAction.Up;
+
+      const isUp = action === AndroidMotionEventAction.Up;
 
       scrcpyClient.controller.injectTouch({
-        action: action,
-        pointerId: 0n,
-        position: { 
-          x: Math.round(x * canvas.width), 
-          y: Math.round(y * canvas.height),
-          screenWidth: canvas.width,
-          screenHeight: canvas.height
-        },
-        pressure: action === 1 ? 0 : 1.0,
-        actionButton: 1,
-        buttons: action === 1 ? 0 : 1
+        action,
+        pointerId: ScrcpyPointerId.Finger,
+        pointerX: Math.round(x * canvas.width),
+        pointerY: Math.round(y * canvas.height),
+        videoWidth: canvas.width,
+        videoHeight: canvas.height,
+        pressure: isUp ? 0 : 1.0,
+        actionButton: AndroidMotionEventButton.Primary,
+        buttons: isUp ? 0 : AndroidMotionEventButton.Primary
       });
     }
 
