@@ -160,10 +160,11 @@
 
     window.__wireframeModuleReady = true;
 
-    // The server controls the wire protocol, so use the newest option schema
-    // supported by the client library instead of the older 2.1 schema.
-    const SERVER_URL = './scrcpy-server-v4.1';
-    const SERVER_VERSION = '4.1';
+    // @yume-chan/adb-scrcpy 2.3.2 understands the scrcpy 2.x/3.1 protocol, not
+    // the incompatible 4.1 protocol. Keep the server and browser client in the
+    // same protocol family so codec-configuration packets reach the decoder.
+    const SERVER_URL = './scrcpy-server-v2.3';
+    const SERVER_VERSION = '2.3';
     const $ = (selector) => document.querySelector(selector);
     const screen = $('#screen');
     const shell = $('#screen-shell');
@@ -226,6 +227,10 @@
         ...(audio ? { audioCodec: ScrcpyAudioCodec.Raw } : {}),
         control: true,
         turnScreenOff: $('#opt-screen').value === 'off',
+        // TinyH264Decoder uses the per-frame metadata to configure itself from
+        // the encoder's codec-config buffer before decoding video frames.
+        sendFrameMeta: true,
+        sendDeviceMeta: true,
       }, { version: SERVER_VERSION });
     }
     function requireCompatibleBrowser() {
