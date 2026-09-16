@@ -216,15 +216,31 @@
     }
     function getOptions() {
       const audio = $('#opt-audio').value === 'on';
-      return new AdbScrcpyOptions3_1({
-        maxSize: Number($('#opt-size').value),
-        bitRate: Number($('#opt-bitrate').value),
-        maxFps: Number($('#opt-fps').value),
+      const maxSize = Number($('#opt-size').value);
+      const bitRate = Number($('#opt-bitrate').value);
+      const maxFps = Number($('#opt-fps').value);
+      const turnScreenOff = $('#opt-screen').value === 'off';
+    
+      const options = new AdbScrcpyOptions3_1({
+        maxSize,
+        bitRate,
+        maxFps,
         audio,
         ...(audio ? { audioCodec: ScrcpyAudioCodec.Raw } : {}),
         control: true,
-        turnScreenOff: $('#opt-screen').value === 'off',
-      }, { version: SERVER_VERSION });
+        turnScreenOff,
+      });
+
+      options.serialize = function () {
+        const args = AdbScrcpyOptions3_1.prototype.serialize.call(this);
+        return args.map((arg) => {
+          if (arg.startsWith('bit_rate=')) return arg.replace('bit_rate=', 'video_bit_rate=');
+          if (arg.startsWith('turn_screen_off=')) return arg.replace('turn_screen_off=', 'turn_screen_off=true'); 
+          return arg;
+        });
+      };
+    
+      return options;
     }
     function requireCompatibleBrowser() {
       if (!window.isSecureContext) throw new Error('WebUSB needs a secure page. Serve this file from https:// or http://localhost (not a network share).');
@@ -312,24 +328,39 @@
     async function attachStreams() {
       if (!client.videoStream) throw new Error('The phone did not provide a video stream.');
       const video = await client.videoStream;
-      
+    
       currentVideoWidth = video.width || video.metadata?.width || 0;
       currentVideoHeight = video.height || video.metadata?.height || 0;
-      
+    
       decoder = new TinyH264Decoder({ canvas: screen });
       decoder.sizeChanged(({ width, height }) => {
-        currentVideoWidth = width; 
+        currentVideoWidth = width;
         currentVideoHeight = height;
       });
     
-      const stream = video.stream;
-    
-      void stream.pipeTo(decoder.writable).catch((error) => { 
-        if (client) notify(`Video stream ended: ${error.message || error}`, 'error'); 
-      });
-    
-      if (!client.audioStream) { statAudio.textContent = 'Audio off'; return; }
+      const videoStream = video.stream;
       
+      videoStream
+        .pipeTo(
+          new WritableStream({
+            async write(chunk) {
+              if (decoder && decoder.writable) {
+                const writer = decoder.writable.getWriter();
+                await writer.write(chunk);
+                writer.releaseLock();
+              }
+            },
+          })
+        )
+        .catch((error) => {
+          if (client) console.warn('Video stream ended:', error);
+        });
+    
+      if (!client.audioStream) {
+        statAudio.textContent = 'Audio off';
+        return;
+      }
+
       const audio = await client.audioStream;
       if (audio.type !== 'success') {
         statAudio.textContent = 'Audio unavailable';
