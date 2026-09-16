@@ -155,7 +155,7 @@
     import AdbWebCredentialStore from 'https://esm.sh/@yume-chan/adb-credential-web@2.1.0?bundle';
     import { AdbDaemonWebUsbDeviceManager } from 'https://esm.sh/@yume-chan/adb-daemon-webusb@2.3.2?bundle';
     import { AdbScrcpyClient, AdbScrcpyOptions2_3 } from 'https://esm.sh/@yume-chan/adb-scrcpy@2.3.2?bundle';
-    import { DefaultServerPath, AndroidKeyEventAction, AndroidKeyEventMeta, AndroidMotionEventAction, AndroidMotionEventButton, ScrcpyPointerId, ScrcpyAudioCodec, ScrcpyOptions2_3 } from 'https://esm.sh/@yume-chan/scrcpy@2.3.0?bundle';
+    import { DefaultServerPath, AndroidKeyEventAction, AndroidKeyEventMeta, AndroidMotionEventAction, AndroidMotionEventButton, ScrcpyPointerId, ScrcpyAudioCodec } from 'https://esm.sh/@yume-chan/scrcpy@2.3.0?bundle';
     import { TinyH264Decoder } from 'https://esm.sh/@yume-chan/scrcpy-decoder-tinyh264@2.1.0?bundle';
 
     window.__wireframeModuleReady = true;
@@ -164,6 +164,7 @@
     // A 3.1 serializer can open the connection, but its stream/control layout
     // does not match this 2.3 server, leaving the canvas and controller idle.
     const SERVER_URL = './scrcpy-server-v2.3';
+    const SERVER_VERSION = '2.3';
     const $ = (selector) => document.querySelector(selector);
     const screen = $('#screen');
     const shell = $('#screen-shell');
@@ -218,7 +219,7 @@
     }
     function getOptions() {
       const audio = $('#opt-audio').value === 'on';
-      const options = new ScrcpyOptions2_3({
+      return new AdbScrcpyOptions2_3({
         maxSize: Number($('#opt-size').value),
         bitRate: Number($('#opt-bitrate').value),
         maxFps: Number($('#opt-fps').value),
@@ -230,8 +231,7 @@
         // the encoder's codec-config buffer before decoding video frames.
         sendFrameMeta: true,
         sendDeviceMeta: true,
-      });
-      return new AdbScrcpyOptions2_3(options);
+      }, { version: SERVER_VERSION });
     }
     function requireCompatibleBrowser() {
       if (!window.isSecureContext) throw new Error('WebUSB needs a secure page. Serve this file from https:// or http://localhost (not a network share).');
@@ -430,7 +430,8 @@
     }
     function friendlyError(error) {
       const raw = `${error?.message || String(error)} ${serverErrorDetail(error)}`;
-      if (/SurfaceControl|createDisplay|NoSuchMethodException|InvocationTargetException/i.test(raw)) return 'The scrcpy server is incompatible with this Android version. This repaired page is configured to use scrcpy 4.1; confirm that scrcpy-server-v4.1 is next to the HTML file, then reload the page.';
+      if (/Invalid option value/i.test(raw)) return 'The browser sent an invalid scrcpy option. Reload the page to use the corrected 2.3 option serializer, then reconnect.';
+      if (/SurfaceControl|createDisplay|NoSuchMethodException|InvocationTargetException/i.test(raw)) return 'The bundled scrcpy server is incompatible with this Android version. Confirm that scrcpy-server-v2.3 is next to the HTML file, then reload the page.';
       if (/authoriz|authenticat|timed out/i.test(raw)) return 'USB debugging was not approved. Unlock the phone, reconnect it, then accept the RSA fingerprint prompt. If no prompt appears, revoke USB debugging authorizations in Developer options and try again.';
       if (/claimInterface|claim interface|busy/i.test(raw)) return 'The phone USB interface is busy. Close Android Studio, adb, native scrcpy, phone-suite software, then reconnect and retry.';
       if (/audio.*(capture|disabled|encoder)|failed to start audio/i.test(raw)) return 'Audio forwarding could not start. Mirror with audio off; Android 11 needs the phone unlocked when starting, and Android 10 or older cannot capture device audio.';
