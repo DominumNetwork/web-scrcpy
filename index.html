@@ -154,16 +154,17 @@
     import { Adb, AdbDaemonTransport } from 'https://esm.sh/@yume-chan/adb@2.6.3?bundle';
     import AdbWebCredentialStore from 'https://esm.sh/@yume-chan/adb-credential-web@2.1.0?bundle';
     import { AdbDaemonWebUsbDeviceManager } from 'https://esm.sh/@yume-chan/adb-daemon-webusb@2.3.2?bundle';
-    import { AdbScrcpyClient, AdbScrcpyOptions2_1 } from 'https://esm.sh/@yume-chan/adb-scrcpy@2.3.2?bundle';
+    import { AdbScrcpyClient, AdbScrcpyOptions3_1 } from 'https://esm.sh/@yume-chan/adb-scrcpy@2.3.2?bundle';
     import { DefaultServerPath, AndroidKeyEventAction, AndroidKeyEventMeta, AndroidMotionEventAction, AndroidMotionEventButton, ScrcpyPointerId, ScrcpyAudioCodec } from 'https://esm.sh/@yume-chan/scrcpy@2.3.0?bundle';
     import { TinyH264Decoder } from 'https://esm.sh/@yume-chan/scrcpy-decoder-tinyh264@2.1.0?bundle';
 
     window.__wireframeModuleReady = true;
 
-    // Scrcpy 2.1 crashes on recent Android versions while calling SurfaceControl.
-    // Keep the proven 2.1 option set, but tell the server its actual 4.1 version.
-    const SERVER_URL = './scrcpy-server-v4.1';
-    const SERVER_VERSION = '4.1';
+    // @yume-chan/adb-scrcpy 2.3.2 understands the scrcpy 2.x/3.1 protocol, not
+    // the incompatible 4.1 protocol. Keep the server and browser client in the
+    // same protocol family so codec-configuration packets reach the decoder.
+    const SERVER_URL = './scrcpy-server-v2.3';
+    const SERVER_VERSION = '2.3';
     const $ = (selector) => document.querySelector(selector);
     const screen = $('#screen');
     const shell = $('#screen-shell');
@@ -218,7 +219,7 @@
     }
     function getOptions() {
       const audio = $('#opt-audio').value === 'on';
-      return new AdbScrcpyOptions2_1({
+      return new AdbScrcpyOptions3_1({
         maxSize: Number($('#opt-size').value),
         bitRate: Number($('#opt-bitrate').value),
         maxFps: Number($('#opt-fps').value),
@@ -226,6 +227,10 @@
         ...(audio ? { audioCodec: ScrcpyAudioCodec.Raw } : {}),
         control: true,
         turnScreenOff: $('#opt-screen').value === 'off',
+        // TinyH264Decoder uses the per-frame metadata to configure itself from
+        // the encoder's codec-config buffer before decoding video frames.
+        sendFrameMeta: true,
+        sendDeviceMeta: true,
       }, { version: SERVER_VERSION });
     }
     function requireCompatibleBrowser() {
