@@ -151,20 +151,15 @@
     }, 7000);
   </script>
   <script type="module">
-    // Tango publishes its packages independently: matching the same number across
-    // all packages causes 404 module imports (and leaves buttons looking inert).
-    // These are the compatible, published browser package versions.
     import { Adb, AdbDaemonTransport } from 'https://esm.sh/@yume-chan/adb@2.6.3?bundle';
     import AdbWebCredentialStore from 'https://esm.sh/@yume-chan/adb-credential-web@2.1.0?bundle';
     import { AdbDaemonWebUsbDeviceManager } from 'https://esm.sh/@yume-chan/adb-daemon-webusb@2.3.2?bundle';
-    import { AdbScrcpyClient, AdbScrcpyOptions2_1 } from 'https://esm.sh/@yume-chan/adb-scrcpy@2.3.2?bundle';
+    import { AdbScrcpyClient, AdbScrcpyOptions3_1 } from 'https://esm.sh/@yume-chan/adb-scrcpy@2.3.2?bundle';
     import { DefaultServerPath, AndroidKeyEventAction, AndroidKeyEventMeta, AndroidMotionEventAction, AndroidMotionEventButton, ScrcpyPointerId, ScrcpyAudioCodec } from 'https://esm.sh/@yume-chan/scrcpy@2.3.0?bundle';
     import { TinyH264Decoder } from 'https://esm.sh/@yume-chan/scrcpy-decoder-tinyh264@2.1.0?bundle';
 
     window.__wireframeModuleReady = true;
 
-    // Scrcpy 2.1 crashes on recent Android versions while calling SurfaceControl.
-    // Keep the proven 2.1 option set, but tell the server its actual 4.1 version.
     const SERVER_URL = './scrcpy-server-v4.1';
     const SERVER_VERSION = '4.1';
     const $ = (selector) => document.querySelector(selector);
@@ -221,7 +216,7 @@
     }
     function getOptions() {
       const audio = $('#opt-audio').value === 'on';
-      return new AdbScrcpyOptions2_1({
+      return new AdbScrcpyOptions3_1({
         maxSize: Number($('#opt-size').value),
         bitRate: Number($('#opt-bitrate').value),
         maxFps: Number($('#opt-fps').value),
