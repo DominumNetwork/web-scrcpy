@@ -1,488 +1,390 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Web Scrcpy</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#09111f">
+  <title>Wireframe — Web Scrcpy</title>
   <style>
-    :root {
-      --bg-dark: #0f172a;
-      --bg-panel: #1e293b;
-      --bg-input: #334155;
-      --accent: #3b82f6;
-      --accent-hover: #2563eb;
-      --danger: #ef4444;
-      --text-main: #f8fafc;
-      --text-muted: #94a3b8;
-      --border: #475569;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: system-ui, -apple-system, sans-serif;
-    }
-
-    body {
-      background-color: var(--bg-dark);
-      color: var(--text-main);
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    header {
-      background-color: var(--bg-panel);
-      border-bottom: 1px solid var(--border);
-      padding: 0.75rem 1.25rem;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      z-index: 10;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-weight: 700;
-      font-size: 1.1rem;
-    }
-
-    .status-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background-color: var(--danger);
-      transition: background 0.3s;
-    }
-
-    .status-dot.connected {
-      background-color: #22c55e;
-    }
-
-    .connection-message {
-      color: var(--text-muted);
-      font-size: 0.8rem;
-      max-width: 22rem;
-    }
-
-    .controls-group {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      flex-wrap: wrap;
-    }
-
-    label {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      display: flex;
-      flex-direction: column;
-      gap: 0.25rem;
-    }
-
-    select, input, button {
-      background-color: var(--bg-input);
-      color: var(--text-main);
-      border: 1px solid var(--border);
-      padding: 0.4rem 0.75rem;
-      border-radius: 0.375rem;
-      font-size: 0.85rem;
-      outline: none;
-    }
-
-    button {
-      background-color: var(--accent);
-      border: none;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-
-    button:hover {
-      background-color: var(--accent-hover);
-    }
-
-    button.btn-danger {
-      background-color: var(--danger);
-    }
-
-    main {
-      flex: 1;
-      display: flex;
-      position: relative;
-      background-color: #000;
-      align-items: center;
-      justify-content: center;
-    }
-
-    #stream-canvas {
-      max-width: 100%;
-      max-height: 100%;
-      object-fit: contain;
-      cursor: pointer;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-    }
-
-    .nav-dock {
-      position: absolute;
-      bottom: 1.5rem;
-      background: rgba(30, 41, 59, 0.85);
-      backdrop-filter: blur(8px);
-      border: 1px solid var(--border);
-      border-radius: 9999px;
-      padding: 0.5rem 1rem;
-      display: flex;
-      gap: 1rem;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-    }
-
-    .nav-btn {
-      background: transparent;
-      border: none;
-      color: var(--text-main);
-      font-size: 1.1rem;
-      padding: 0.4rem 0.8rem;
-      border-radius: 50%;
-      cursor: pointer;
-    }
-
-    .nav-btn:hover {
-      background-color: var(--bg-input);
-    }
-
-    #overlay {
-      position: absolute;
-      inset: 0;
-      background: rgba(15, 23, 42, 0.9);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 1rem;
-      text-align: center;
-      padding: 2rem;
-    }
+    :root { color-scheme: dark; --ink:#edf4ff; --muted:#93a3bb; --panel:#121e31; --panel-2:#0d1728; --line:#263955; --blue:#68a7ff; --blue-deep:#377ce3; --green:#39d89c; --red:#ff7474; --shadow:0 20px 60px #02071399; }
+    * { box-sizing:border-box; }
+    html, body { width:100%; height:100%; margin:0; }
+    body { min-width:320px; overflow:hidden; background:#09111f; color:var(--ink); font:14px/1.4 Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+    button, select { font:inherit; }
+    button { border:0; cursor:pointer; }
+    button:focus-visible, select:focus-visible { outline:3px solid #8bc0ff; outline-offset:2px; }
+    .app { height:100%; display:grid; grid-template-rows:auto 1fr; }
+    .topbar { z-index:2; display:flex; align-items:center; gap:18px; padding:12px 18px; background:linear-gradient(110deg,#111f34,#0b1525); border-bottom:1px solid var(--line); }
+    .brand { min-width:max-content; display:flex; gap:10px; align-items:center; font-weight:750; letter-spacing:.01em; }
+    .brand-mark { display:grid; place-items:center; width:29px; height:29px; border-radius:9px; color:#061223; background:linear-gradient(135deg,#92c1ff,#4b80ff); font-size:17px; box-shadow:0 5px 20px #3e7de34d; }
+    .connection { display:flex; align-items:center; gap:8px; min-width:145px; padding:7px 10px; color:var(--muted); border:1px solid var(--line); border-radius:999px; background:#0b1627; font-size:12px; }
+    .dot { width:8px; height:8px; border-radius:50%; background:#748298; box-shadow:0 0 0 3px #7482981e; }
+    .dot.busy { background:#ffc55a; box-shadow:0 0 0 3px #ffc55a1e; animation:pulse 1.25s infinite; }
+    .dot.connected { background:var(--green); box-shadow:0 0 0 3px #39d89c24; }
+    .top-actions { margin-left:auto; display:flex; align-items:center; gap:8px; }
+    .button { min-height:35px; padding:7px 12px; border-radius:8px; color:var(--ink); background:#1d304a; transition:.16s ease; }
+    .button:hover { filter:brightness(1.16); transform:translateY(-1px); }
+    .button.primary { color:#061223; background:linear-gradient(135deg,#8dc2ff,#5994ff); font-weight:700; }
+    .button.danger { color:#ffd5d5; background:#542c39; }
+    .button.ghost { background:transparent; color:var(--muted); border:1px solid var(--line); }
+    .button:disabled { cursor:wait; opacity:.56; transform:none; }
+    .layout { min-height:0; display:grid; grid-template-columns:278px minmax(0,1fr); }
+    aside { overflow:auto; padding:17px 14px; background:#0c1728; border-right:1px solid var(--line); }
+    .section-label { margin:0 0 8px 6px; color:#7f91ac; font-size:10px; font-weight:750; letter-spacing:.1em; text-transform:uppercase; }
+    .field-group { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-bottom:21px; }
+    label { display:grid; gap:5px; color:var(--muted); font-size:11px; }
+    label.wide { grid-column:1 / -1; }
+    select { width:100%; min-height:34px; padding:6px 27px 6px 9px; color:var(--ink); background:#142239; border:1px solid #2b405e; border-radius:7px; }
+    .tip { margin:4px 1px 22px; padding:11px; color:#aebcd0; background:#101e32; border:1px solid #213752; border-radius:9px; font-size:12px; }
+    .tip strong { color:#dce9ff; }
+    .tips-list { margin:7px 0 0 16px; padding:0; color:#9aacC5; }
+    .tips-list li { margin:4px 0; }
+    .shortcuts { display:grid; gap:2px; }
+    .shortcut { display:flex; align-items:center; justify-content:space-between; padding:7px 6px; color:#a8b7cb; border-bottom:1px solid #1b2b42; }
+    kbd { min-width:36px; padding:2px 5px; border:1px solid #3b5070; border-radius:4px; color:#d9e7fb; background:#15243a; font:11px ui-monospace, SFMono-Regular, Consolas, monospace; text-align:center; }
+    .stage { position:relative; min-width:0; min-height:0; display:grid; place-items:center; overflow:hidden; background:radial-gradient(circle at 50% 44%,#1c2c47 0,#0a1322 45%,#070e19 100%); }
+    .stage::before { content:""; position:absolute; inset:0; opacity:.25; pointer-events:none; background-image:linear-gradient(#ffffff08 1px,transparent 1px),linear-gradient(90deg,#ffffff08 1px,transparent 1px); background-size:26px 26px; mask-image:radial-gradient(ellipse,#000 0,transparent 74%); }
+    #screen-shell { position:relative; z-index:1; display:grid; place-items:center; max-width:100%; max-height:100%; }
+    #screen { display:block; max-width:calc(100vw - 330px); max-height:calc(100vh - 70px); min-width:190px; min-height:338px; background:#020508; border:1px solid #344a69; border-radius:13px; box-shadow:var(--shadow),0 0 0 6px #050b15; touch-action:none; outline:none; }
+    .empty-state { position:absolute; z-index:3; display:grid; justify-items:center; max-width:450px; padding:28px; text-align:center; background:#101c2fcc; border:1px solid #2b405e; border-radius:16px; box-shadow:var(--shadow); backdrop-filter:blur(16px); }
+    .empty-icon { display:grid; place-items:center; width:49px; height:49px; margin-bottom:11px; border-radius:14px; color:#91bdff; background:#193253; font-size:23px; }
+    .empty-state h1 { margin:0; font-size:20px; }
+    .empty-state p { margin:9px 0 15px; color:#a5b5ca; }
+    .requirements { width:100%; padding:9px 11px; color:#aab9ce; background:#0b1625; border-radius:8px; font-size:11px; text-align:left; }
+    .requirements code { color:#b8d3ff; }
+    .nav { position:absolute; z-index:4; bottom:17px; left:50%; display:flex; gap:5px; padding:6px; border:1px solid #3a4e6c; border-radius:13px; background:#0b1628d9; box-shadow:0 10px 36px #02071385; backdrop-filter:blur(12px); transform:translateX(-50%); }
+    .nav button { width:39px; height:34px; border-radius:8px; color:#d6e5fb; background:transparent; font-size:16px; }
+    .nav button:hover { background:#233b5c; }
+    .nav button[disabled] { color:#64738a; cursor:default; }
+    .stats { position:absolute; z-index:4; top:15px; right:18px; display:flex; gap:7px; }
+    .stat { padding:5px 8px; color:#afc0d7; background:#0a1424c9; border:1px solid #2a3e5b; border-radius:7px; font-size:11px; backdrop-filter:blur(8px); }
+    .stat b { color:#f0f6ff; font-variant-numeric:tabular-nums; }
+    .toast { position:absolute; z-index:8; bottom:68px; left:50%; max-width:min(620px,calc(100% - 32px)); padding:10px 13px; color:#dfeaff; background:#17263dda; border:1px solid #3b5880; border-radius:9px; box-shadow:var(--shadow); text-align:center; transform:translate(-50%,140px); transition:transform .25s ease; backdrop-filter:blur(12px); }
+    .toast.show { transform:translate(-50%,0); }
+    .toast.error { border-color:#a94f61; color:#ffdfe3; background:#35202cdc; }
+    .toast.warn { border-color:#a58045; color:#fff0cd; background:#352b1edc; }
+    .hidden { display:none !important; }
+    @keyframes pulse { 50% { opacity:.45; transform:scale(.82); } }
+    @media (max-width:850px) { .layout { grid-template-columns:1fr; } aside { display:none; } #screen { max-width:calc(100vw - 35px); max-height:calc(100vh - 80px); } .connection { display:none; } }
+    @media (max-width:560px) { .topbar { padding:10px; gap:8px; } .brand { font-size:12px; } .brand-mark { width:25px; height:25px; } .button { padding:7px 9px; } #btn-fullscreen { display:none; } .empty-state { max-width:calc(100% - 32px); padding:22px 17px; } .stats { right:10px; top:10px; } .nav { bottom:9px; } }
   </style>
 </head>
 <body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">⌁</span><span>Wireframe</span></div>
+      <div class="connection"><i id="status-dot" class="dot"></i><span id="status-label">No device</span></div>
+      <div class="top-actions">
+        <button id="btn-fullscreen" class="button ghost" title="Toggle full screen">Fullscreen</button>
+        <button id="btn-disconnect" class="button danger hidden">Disconnect</button>
+        <button id="btn-connect" class="button primary">Connect Android</button>
+      </div>
+    </header>
 
-  <header>
-    <div class="brand">
-      <div id="status-indicator" class="status-dot"></div>
-      <span>WebADB Mirror</span>
+    <div class="layout">
+      <aside>
+        <p class="section-label">Stream settings</p>
+        <div class="field-group">
+          <label class="wide">Max resolution
+            <select id="opt-size">
+              <option value="0">Native</option><option value="1920">1920 px</option><option value="1280" selected>1280 px — balanced</option><option value="1024">1024 px</option><option value="720">720 px — low latency</option>
+            </select>
+          </label>
+          <label>Frame rate
+            <select id="opt-fps"><option value="60">60 FPS</option><option value="30" selected>30 FPS</option><option value="24">24 FPS</option></select>
+          </label>
+          <label>Video bitrate
+            <select id="opt-bitrate"><option value="12000000">12 Mbps</option><option value="8000000" selected>8 Mbps</option><option value="4000000">4 Mbps</option><option value="2000000">2 Mbps</option></select>
+          </label>
+          <label>Audio
+            <select id="opt-audio"><option value="on" selected>Passthrough on</option><option value="off">Off</option></select>
+          </label>
+          <label>Phone screen
+            <select id="opt-screen"><option value="keep" selected>Keep on</option><option value="off">Turn off</option></select>
+          </label>
+        </div>
+        <p class="section-label">Before you connect</p>
+        <div class="tip">
+          <strong>USB debugging is required.</strong>
+          <ol class="tips-list"><li>Enable Developer options and USB debugging.</li><li>Connect a data-capable cable and unlock the phone.</li><li>Accept <em>Allow USB debugging?</em> on the phone.</li></ol>
+        </div>
+        <p class="section-label">Keyboard shortcuts</p>
+        <div class="shortcuts"><div class="shortcut"><span>Back</span><kbd>Esc</kbd></div><div class="shortcut"><span>Home</span><kbd>Home</kbd></div><div class="shortcut"><span>Recent apps</span><kbd>End</kbd></div><div class="shortcut"><span>Focus phone</span><kbd>Click</kbd></div></div>
+      </aside>
+
+      <main id="stage" class="stage">
+        <div class="stats"><span class="stat"><b id="stat-fps">—</b> FPS</span><span class="stat" id="stat-audio">Audio —</span></div>
+        <div id="screen-shell"><canvas id="screen" width="720" height="1280" tabindex="0" aria-label="Connected Android screen"></canvas></div>
+        <section id="empty-state" class="empty-state">
+          <div class="empty-icon">⌁</div><h1>Ready to mirror your Android</h1>
+          <p>Connect with WebUSB, then accept the ADB fingerprint on the device. Your keystrokes and taps are sent only while this mirror is connected.</p>
+          <button id="btn-connect-empty" class="button primary">Choose a device</button>
+          <div class="requirements">Use Chrome or Edge over <code>https://</code> or <code>http://localhost</code>. Close Android Studio, adb, or native scrcpy first — they can hold the USB interface.</div>
+        </section>
+        <nav class="nav" aria-label="Android controls">
+          <button data-key="4" title="Back" disabled>‹</button><button data-key="3" title="Home" disabled>○</button><button data-key="187" title="Recent apps" disabled>□</button><button data-key="26" title="Power" disabled>⏻</button><button data-key="24" title="Volume up" disabled>＋</button><button data-key="25" title="Volume down" disabled>−</button>
+        </nav>
+        <div id="toast" class="toast" role="status" aria-live="polite"></div>
+      </main>
     </div>
+  </div>
 
-    <div class="controls-group">
-      <label>Max Resolution
-        <select id="opt-resolution">
-          <option value="0">Native (Full HD+)</option>
-          <option value="1280" selected>1280p (Recommended)</option>
-          <option value="1024">1024p</option>
-          <option value="720">720p (Fastest)</option>
-        </select>
-      </label>
+  <script type="module">
+    import { Adb, AdbDaemonTransport } from 'https://esm.sh/@yume-chan/adb@2.3.2?bundle';
+    import AdbWebCredentialStore from 'https://esm.sh/@yume-chan/adb-credential-web@2.3.2?bundle';
+    import { AdbDaemonWebUsbDeviceManager } from 'https://esm.sh/@yume-chan/adb-daemon-webusb@2.3.2?bundle';
+    import { AdbScrcpyClient, AdbScrcpyOptions2_1 } from 'https://esm.sh/@yume-chan/adb-scrcpy@2.3.2?bundle';
+    import { DefaultServerPath, AndroidKeyEventAction, AndroidKeyEventMeta, AndroidMotionEventAction, AndroidMotionEventButton, ScrcpyPointerId, ScrcpyAudioCodec } from 'https://esm.sh/@yume-chan/scrcpy@2.3.2?bundle';
+    import { TinyH264Decoder } from 'https://esm.sh/@yume-chan/scrcpy-decoder-tinyh264@2.3.2?bundle';
 
-      <label>Bitrate
-        <select id="opt-bitrate">
-          <option value="8000000" selected>8 Mbps</option>
-          <option value="4000000">4 Mbps</option>
-          <option value="2000000">2 Mbps</option>
-        </select>
-      </label>
+    const SERVER_URL = 'https://cdn.jsdelivr.net/npm/@yume-chan/scrcpy@2.3.2/bin/scrcpy-server';
+    const $ = (selector) => document.querySelector(selector);
+    const screen = $('#screen');
+    const shell = $('#screen-shell');
+    const stage = $('#stage');
+    const connectButton = $('#btn-connect');
+    const emptyConnectButton = $('#btn-connect-empty');
+    const disconnectButton = $('#btn-disconnect');
+    const emptyState = $('#empty-state');
+    const statusDot = $('#status-dot');
+    const statusLabel = $('#status-label');
+    const toast = $('#toast');
+    const statFps = $('#stat-fps');
+    const statAudio = $('#stat-audio');
+    const navButtons = [...document.querySelectorAll('.nav button')];
+    const credentials = new AdbWebCredentialStore();
 
-      <label>Max FPS
-        <select id="opt-fps">
-          <option value="0" selected>Unlimited</option>
-          <option value="60">60 FPS</option>
-          <option value="30">30 FPS</option>
-        </select>
-      </label>
+    let adb;
+    let transport;
+    let client;
+    let decoder;
+    let audioContext;
+    let nextAudioTime = 0;
+    let currentVideoWidth = 0;
+    let currentVideoHeight = 0;
+    let activePointers = new Set();
+    let toastTimer;
+    let statTimer;
+    let lastRendered = 0;
 
-      <label>Audio Forwarding
-        <select id="opt-audio">
-          <option value="true" selected>Enabled (Android 11+)</option>
-          <option value="false">Disabled</option>
-        </select>
-      </label>
-
-      <label>Turn Off Phone Screen
-        <select id="opt-screenoff">
-          <option value="false" selected>Keep On</option>
-          <option value="true">Turn Off Screen</option>
-        </select>
-      </label>
-    </div>
-
-    <div class="controls-group">
-      <button id="btn-connect">Connect Device</button>
-      <button id="btn-disconnect" class="btn-danger" style="display: none;">Disconnect</button>
-      <button id="btn-fullscreen">Fullscreen</button>
-      <span id="connection-message" class="connection-message" role="status" aria-live="polite"></span>
-    </div>
-  </header>
-
-  <main>
-    <div id="overlay">
-      <h2>No Device Connected</h2>
-      <p style="color: var(--text-muted); max-width: 400px;">Plug in your Android phone via USB, enable USB Debugging in Developer Options, then click Connect Device above.</p>
-    </div>
-    
-    <canvas id="stream-canvas" tabindex="0"></canvas>
-
-    <div class="nav-dock" id="nav-dock" style="display: none;">
-      <button class="nav-btn" id="nav-back" title="Back">◀</button>
-      <button class="nav-btn" id="nav-home" title="Home">●</button>
-      <button class="nav-btn" id="nav-recents" title="Recents">■</button>
-      <button class="nav-btn" id="nav-power" title="Power Button">⏻</button>
-      <button class="nav-btn" id="nav-volup" title="Volume Up">🔊</button>
-      <button class="nav-btn" id="nav-voldown" title="Volume Down">🔉</button>
-    </div>
-  </main>
-  
-<script type="importmap">
-{
-  "imports": {
-    "@yume-chan/adb": "https://esm.sh/@yume-chan/adb@2.6.3?deps=@yume-chan/struct@2.3.2,@yume-chan/stream-extra@2.6.1,@yume-chan/event@2.0.0",
-    "@yume-chan/adb-credential-web": "https://esm.sh/@yume-chan/adb-credential-web@2.1.0?deps=@yume-chan/adb@2.6.3",
-    "@yume-chan/adb-daemon-webusb": "https://esm.sh/@yume-chan/adb-daemon-webusb@2.3.2?deps=@yume-chan/adb@2.6.3,@yume-chan/stream-extra@2.6.1",
-    "@yume-chan/adb-scrcpy": "https://cdn.jsdelivr.net/npm/@yume-chan/adb-scrcpy@2.3.2/+esm",
-    "@yume-chan/scrcpy": "https://cdn.jsdelivr.net/npm/@yume-chan/scrcpy@2.3.0/+esm",
-    "@yume-chan/scrcpy-decoder-tinyh264": "https://esm.sh/@yume-chan/scrcpy-decoder-tinyh264@2.1.0?bundle&target=es2022",
-    "@yume-chan/async": "https://esm.sh/@yume-chan/async@4.1.3",
-    "@yume-chan/event": "https://esm.sh/@yume-chan/event@2.0.0",
-    "@yume-chan/stream-extra": "https://esm.sh/@yume-chan/stream-extra@2.6.1?deps=@yume-chan/async@4.1.3",
-    "@yume-chan/struct": "https://esm.sh/@yume-chan/struct@2.3.2"
-  }
-}
-</script>
-
-<script type="module">
-  import { Adb, AdbDaemonTransport } from '@yume-chan/adb';
-  import AdbWebCredentialStore from '@yume-chan/adb-credential-web';
-  import { AdbDaemonWebUsbDeviceManager } from '@yume-chan/adb-daemon-webusb';
-  import { AdbScrcpyClient, AdbScrcpyOptions2_1 } from '@yume-chan/adb-scrcpy';
-  import {
-    DefaultServerPath,
-    AndroidMotionEventAction,
-    AndroidMotionEventButton,
-    ScrcpyPointerId,
-  } from '@yume-chan/scrcpy';
-  import { TinyH264Decoder } from '@yume-chan/scrcpy-decoder-tinyh264';
-
-  document.addEventListener('DOMContentLoaded', () => {
-    let adb, scrcpyClient;
-    const canvas = document.getElementById('stream-canvas');
-    const ctx = canvas ? canvas.getContext('2d') : null;
-    const CredentialStore = new AdbWebCredentialStore(); // Instantiates the secure RSA key storage
-
-    if (!canvas || !ctx) {
-      console.error('Canvas initialization failed.');
-      return;
+    function setStatus(label, state = '') {
+      statusLabel.textContent = label;
+      statusDot.className = `dot ${state}`;
     }
-
-    const btnConnect = document.getElementById('btn-connect');
-    const btnDisconnect = document.getElementById('btn-disconnect');
-    const overlay = document.getElementById('overlay');
-    const navDock = document.getElementById('nav-dock');
-    const statusIndicator = document.getElementById('status-indicator');
-    const connectionMessage = document.getElementById('connection-message');
-
-    function setConnectionMessage(message) {
-      connectionMessage.textContent = message;
+    function notify(message, kind = '') {
+      clearTimeout(toastTimer);
+      toast.textContent = message;
+      toast.className = `toast ${kind} show`;
+      toastTimer = setTimeout(() => toast.className = `toast ${kind}`, kind === 'error' ? 9000 : 4500);
     }
-
-    function withTimeout(promise, milliseconds, timeoutMessage) {
-      let timer;
-      const timeout = new Promise((_, reject) => {
-        timer = window.setTimeout(() => reject(new Error(timeoutMessage)), milliseconds);
+    function setConnected(connected) {
+      connectButton.classList.toggle('hidden', connected);
+      disconnectButton.classList.toggle('hidden', !connected);
+      emptyState.classList.toggle('hidden', connected);
+      navButtons.forEach((button) => button.disabled = !connected);
+    }
+    function setConnecting(connecting) {
+      connectButton.disabled = connecting;
+      emptyConnectButton.disabled = connecting;
+      connectButton.textContent = connecting ? 'Connecting…' : 'Connect Android';
+      emptyConnectButton.textContent = connecting ? 'Connecting…' : 'Choose a device';
+    }
+    function getOptions() {
+      const audio = $('#opt-audio').value === 'on';
+      return new AdbScrcpyOptions2_1({
+        maxSize: Number($('#opt-size').value),
+        bitRate: Number($('#opt-bitrate').value),
+        maxFps: Number($('#opt-fps').value),
+        audio,
+        ...(audio ? { audioCodec: ScrcpyAudioCodec.Raw } : {}),
+        control: true,
+        turnScreenOff: $('#opt-screen').value === 'off',
       });
-
-      return Promise.race([promise, timeout]).finally(() => window.clearTimeout(timer));
     }
-
-    const keycodeMap = {
-      'Backspace': 67, 'Enter': 66, 'Tab': 61, 'Space': 62, 'Escape': 4,
-      'ArrowLeft': 21, 'ArrowRight': 22, 'ArrowUp': 19, 'ArrowDown': 20,
-      'Delete': 112, 'Home': 3
-    };
-
-    btnConnect.addEventListener('click', async () => {
-      btnConnect.disabled = true;
-      setConnectionMessage('Choose your phone in the browser prompt. Keep it unlocked.');
-      let connection;
-
+    function requireCompatibleBrowser() {
+      if (!window.isSecureContext) throw new Error('WebUSB needs a secure page. Serve this file from https:// or http://localhost (not a network share).');
+      if (!navigator.usb) throw new Error('WebUSB is unavailable. Open this in current Chrome or Edge on desktop.');
+    }
+    async function requestDevice() {
+      const manager = AdbDaemonWebUsbDeviceManager.BROWSER;
+      return manager.requestDevice();
+    }
+    async function connect() {
+      if (client) return;
       try {
-        // v2 syntax for WebUSB Device Manager
-        const backend = await AdbDaemonWebUsbDeviceManager.BROWSER.requestDevice();
-        if (!backend) return;
+        requireCompatibleBrowser();
+        setConnecting(true);
+        setStatus('Choose USB device', 'busy');
+        notify('Select your phone in the browser chooser. Keep the phone unlocked.', 'warn');
+        const device = await requestDevice();
+        if (!device) { setStatus('No device'); return; }
 
-        connection = await backend.connect();
-        setConnectionMessage('Waiting for the USB debugging authorization on your phone…');
-        
-        // v2 syntax for authenticating and creating the ADB instance
-        adb = new Adb(
-          await withTimeout(
-            AdbDaemonTransport.authenticate({
-              serial: backend.serial,
-              connection,
-              credentialStore: CredentialStore,
-            }),
-            30000,
-            'Timed out waiting for Android to show the USB debugging authorization request.'
-          )
-        );
+        transport = await device.connect();
+        setStatus('Approve USB debugging', 'busy');
+        notify('Check your Android now and tap “Allow USB debugging”.', 'warn');
+        const authenticated = await authenticateWithTimeout(device, transport);
+        adb = new Adb(authenticated);
 
-        setConnectionMessage('Pushing the scrcpy server to your phone…');
-        const serverResponse = await fetch('https://cdn.jsdelivr.net/npm/@yume-chan/scrcpy@2.3.0/bin/scrcpy-server');
-        // AdbScrcpyClient.pushServer wants a ReadableStream, not an ArrayBuffer -
-        // response.body already is one, so we can pipe it straight through.
-        await AdbScrcpyClient.pushServer(adb, serverResponse.body);
+        setStatus('Uploading mirror service', 'busy');
+        const response = await fetch(SERVER_URL);
+        if (!response.ok || !response.body) throw new Error(`Could not download the scrcpy server (${response.status}). Check your internet connection.`);
+        await AdbScrcpyClient.pushServer(adb, response.body);
 
-        setConnectionMessage('Starting the scrcpy server…');
-        const options = new AdbScrcpyOptions2_1({
-          maxSize: parseInt(document.getElementById('opt-resolution').value),
-          bitRate: parseInt(document.getElementById('opt-bitrate').value),
-          maxFps: parseInt(document.getElementById('opt-fps').value),
-          audio: document.getElementById('opt-audio').value === 'true',
-          control: true,
-          turnScreenOff: document.getElementById('opt-screenoff').value === 'true'
-        });
-
-        // start() takes the on-device PATH the server was pushed to, not the
-        // downloaded bytes themselves - that's what pushServer() was for.
-        scrcpyClient = await AdbScrcpyClient.start(adb, DefaultServerPath, options);
-
-        overlay.style.display = 'none';
-        navDock.style.display = 'flex';
-        btnConnect.style.display = 'none';
-        btnDisconnect.style.display = 'inline-block';
-        statusIndicator.classList.add('connected');
-        setConnectionMessage('Connected.');
-
-        if (scrcpyClient.videoStream) {
-          const decoder = new TinyH264Decoder();
-          scrcpyClient.videoStream.pipeTo(decoder.writable);
-          
-          decoder.renderer.onFrame((frame) => {
-            canvas.width = frame.width;
-            canvas.height = frame.height;
-            ctx.drawImage(frame, 0, 0);
-          });
-        }
-      } catch (err) {
-        const isAuthenticationError = err?.message?.includes('No authenticator can handle the request');
-        const isAuthorizationTimeout = err?.message?.includes('Timed out waiting for Android');
-        const message = isAuthenticationError || isAuthorizationTimeout
-          ? 'Android did not complete USB debugging authorization. On your phone, unlock it, open Developer options, tap “Revoke USB debugging authorizations”, unplug and reconnect the data cable, then accept “Allow USB debugging” when it appears. If it still does not appear, switch the USB mode from Charge only to File transfer.'
-          : `Connection failed: ${err.message || 'Unknown error'}`;
-
-        setConnectionMessage(message);
-        alert(message);
-        console.error(err);
+        setStatus('Starting screen mirror', 'busy');
+        if ($('#opt-audio').value === 'on') startAudio();
+        client = await AdbScrcpyClient.start(adb, DefaultServerPath, getOptions());
+        await attachStreams();
+        setConnected(true);
+        setStatus('Connected', 'connected');
+        notify('Connected. Click the phone screen to send keyboard input.');
+        startStats();
+      } catch (error) {
+        await cleanup();
+        const message = friendlyError(error);
+        setStatus('Connection failed');
+        notify(message, 'error');
+        console.error('Wireframe connection error:', error);
       } finally {
-        if (!scrcpyClient) {
-          // An unsuccessful authentication leaves the WebUSB connection open.
-          // Close it so the user can correct the phone authorization and retry.
-          await adb?.close();
-          await connection?.close();
-          adb = undefined;
-          btnConnect.disabled = false;
-        }
+        setConnecting(false);
       }
-    });
-
-    btnDisconnect.addEventListener('click', async () => {
-      if (scrcpyClient) await scrcpyClient.close();
-      if (adb) await adb.close();
-      
-      overlay.style.display = 'flex';
-      navDock.style.display = 'none';
-      btnConnect.style.display = 'inline-block';
-      btnDisconnect.style.display = 'none';
-      statusIndicator.classList.remove('connected');
-      setConnectionMessage('Disconnected.');
-    });
-
-    document.getElementById('btn-fullscreen').addEventListener('click', () => {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen();
-      } else {
-        document.exitFullscreen();
-      }
-    });
-
-    canvas.addEventListener('pointerdown', (e) => {
-      canvas.focus();
-      sendTouch(e);
-    });
-    canvas.addEventListener('pointermove', (e) => { 
-      if (e.buttons === 1) sendTouch(e); 
-    });
-    canvas.addEventListener('pointerup', sendTouch);
-    canvas.addEventListener('pointercancel', sendTouch);
-
-    function sendTouch(e) {
-      if (!scrcpyClient?.controller) return;
-      
-      const rect = canvas.getBoundingClientRect();
-      const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
-
-      let action = AndroidMotionEventAction.Move;
-      if (e.type === 'pointerdown') action = AndroidMotionEventAction.Down;
-      else if (e.type === 'pointerup' || e.type === 'pointercancel') action = AndroidMotionEventAction.Up;
-
-      const isUp = action === AndroidMotionEventAction.Up;
-
-      scrcpyClient.controller.injectTouch({
-        action,
-        pointerId: ScrcpyPointerId.Finger,
-        pointerX: Math.round(x * canvas.width),
-        pointerY: Math.round(y * canvas.height),
-        videoWidth: canvas.width,
-        videoHeight: canvas.height,
-        pressure: isUp ? 0 : 1.0,
-        actionButton: AndroidMotionEventButton.Primary,
-        buttons: isUp ? 0 : AndroidMotionEventButton.Primary
+    }
+    async function authenticateWithTimeout(device, connection) {
+      const authenticate = AdbDaemonTransport.authenticate({ serial: device.serial, connection, credentialStore: credentials });
+      let timeout;
+      const deadline = new Promise((_, reject) => timeout = setTimeout(() => reject(new Error('Timed out waiting for USB debugging authorization.')), 45000));
+      try { return await Promise.race([authenticate, deadline]); }
+      finally { clearTimeout(timeout); }
+    }
+    async function attachStreams() {
+      if (!client.videoStream) throw new Error('The phone did not provide a video stream.');
+      const video = await client.videoStream;
+      currentVideoWidth = video.width || video.metadata.width || 0;
+      currentVideoHeight = video.height || video.metadata.height || 0;
+      decoder = new TinyH264Decoder({ canvas: screen });
+      decoder.sizeChanged(({ width, height }) => {
+        currentVideoWidth = width; currentVideoHeight = height;
       });
+      void video.stream.pipeTo(decoder.writable).catch((error) => { if (client) notify(`Video stream ended: ${error.message || error}`, 'error'); });
+
+      if (!client.audioStream) { statAudio.textContent = 'Audio off'; return; }
+      const audio = await client.audioStream;
+      if (audio.type !== 'success') {
+        statAudio.textContent = 'Audio unavailable';
+        notify('Mirror connected, but this device cannot forward audio in the selected mode.', 'warn');
+        return;
+      }
+      statAudio.textContent = 'Audio on';
+      void audio.stream.pipeTo(new WritableStream({ write: (packet) => playPcm(packet.data) }))
+        .catch((error) => { if (client) { statAudio.textContent = 'Audio ended'; console.warn('Audio stream ended', error); } });
+    }
+    function startAudio() {
+      if (!audioContext) audioContext = new AudioContext({ latencyHint: 'interactive', sampleRate: 48000 });
+      void audioContext.resume();
+      nextAudioTime = audioContext.currentTime + 0.08;
+    }
+    function playPcm(bytes) {
+      if (!audioContext || !bytes?.byteLength) return;
+      const samples = Math.floor(bytes.byteLength / 4);
+      if (!samples) return;
+      const buffer = audioContext.createBuffer(2, samples, 48000);
+      const left = buffer.getChannelData(0), right = buffer.getChannelData(1);
+      const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+      for (let i = 0, offset = 0; i < samples; i++, offset += 4) {
+        left[i] = view.getInt16(offset, true) / 32768;
+        right[i] = view.getInt16(offset + 2, true) / 32768;
+      }
+      const source = audioContext.createBufferSource();
+      source.buffer = buffer; source.connect(audioContext.destination);
+      const now = audioContext.currentTime;
+      if (nextAudioTime < now - 0.1 || nextAudioTime > now + 0.35) nextAudioTime = now + 0.035;
+      source.start(nextAudioTime);
+      nextAudioTime += buffer.duration;
+    }
+    function videoSize() {
+      return { width: currentVideoWidth || client?.videoWidth || screen.width, height: currentVideoHeight || client?.videoHeight || screen.height };
+    }
+    function eventToTouch(event) {
+      const { width, height } = videoSize();
+      if (!client?.controller || !width || !height) return;
+      const rect = screen.getBoundingClientRect();
+      const x = Math.max(0, Math.min(width, ((event.clientX - rect.left) / rect.width) * width));
+      const y = Math.max(0, Math.min(height, ((event.clientY - rect.top) / rect.height) * height));
+      let action;
+      if (event.type === 'pointerdown') action = AndroidMotionEventAction.Down;
+      else if (event.type === 'pointerup' || event.type === 'pointercancel') action = AndroidMotionEventAction.Up;
+      else action = activePointers.size ? AndroidMotionEventAction.Move : AndroidMotionEventAction.HoverMove;
+      const buttonMap = [AndroidMotionEventButton.Primary, AndroidMotionEventButton.Tertiary, AndroidMotionEventButton.Secondary, AndroidMotionEventButton.Back, AndroidMotionEventButton.Forward];
+      const buttons = event.buttons || 0;
+      void client.controller.injectTouch({
+        action, pointerId: BigInt(event.pointerId), pointerX: Math.round(x), pointerY: Math.round(y), videoWidth: width, videoHeight: height,
+        pressure: buttons ? 1 : 0, actionButton: buttonMap[event.button] ?? 0, buttons,
+      }).catch(console.warn);
+    }
+    function onPointer(event) {
+      if (!client) return;
+      event.preventDefault();
+      if (event.type === 'pointerdown') { screen.focus(); screen.setPointerCapture(event.pointerId); activePointers.add(event.pointerId); }
+      eventToTouch(event);
+      if (event.type === 'pointerup' || event.type === 'pointercancel') activePointers.delete(event.pointerId);
+    }
+    function androidKeyCode(event) {
+      const codes = { Escape:4, Home:3, End:187, Backspace:67, Enter:66, Tab:61, ' ':62, Delete:112, ArrowUp:19, ArrowDown:20, ArrowLeft:21, ArrowRight:22, PageUp:92, PageDown:93, F1:131, F2:132, F3:133, F4:134, F5:135, F6:136, F7:137, F8:138, F9:139, F10:140, F11:141, F12:142 };
+      if (codes[event.key] !== undefined) return codes[event.key];
+      if (/^Key[A-Z]$/.test(event.code)) return 29 + event.code.charCodeAt(3) - 65;
+      if (/^Digit[0-9]$/.test(event.code)) return 7 + Number(event.code[5]);
+      return undefined;
+    }
+    function metaState(event) { return (event.shiftKey ? AndroidKeyEventMeta.Shift : 0) | (event.altKey ? AndroidKeyEventMeta.Alt : 0) | (event.ctrlKey ? AndroidKeyEventMeta.Ctrl : 0) | (event.metaKey ? AndroidKeyEventMeta.Meta : 0); }
+    function onKey(event) {
+      if (!client?.controller || document.activeElement !== screen) return;
+      const code = androidKeyCode(event);
+      if (code === undefined) {
+        if (event.type === 'keydown' && event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) { event.preventDefault(); void client.controller.injectText(event.key).catch(console.warn); }
+        return;
+      }
+      event.preventDefault();
+      void client.controller.injectKeyCode({ action:event.type === 'keydown' ? AndroidKeyEventAction.Down : AndroidKeyEventAction.Up, keyCode:code, repeat:event.repeat ? 1 : 0, metaState:metaState(event) }).catch(console.warn);
+    }
+    async function sendKey(keyCode) {
+      if (!client?.controller) return;
+      try { await client.controller.injectKeyCode({ action:AndroidKeyEventAction.Down, keyCode, repeat:0, metaState:AndroidKeyEventMeta.None }); await client.controller.injectKeyCode({ action:AndroidKeyEventAction.Up, keyCode, repeat:0, metaState:AndroidKeyEventMeta.None }); }
+      catch (error) { console.warn(error); }
+    }
+    function startStats() {
+      clearInterval(statTimer); lastRendered = decoder?.framesRendered || 0;
+      statTimer = setInterval(() => { const total = decoder?.framesRendered || 0; statFps.textContent = String(Math.max(0, total - lastRendered)); lastRendered = total; }, 1000);
+    }
+    async function disconnect() {
+      await cleanup(); setConnected(false); setStatus('No device'); statFps.textContent = '—'; statAudio.textContent = 'Audio —'; notify('Disconnected.');
+    }
+    async function cleanup() {
+      clearInterval(statTimer); activePointers.clear();
+      try { decoder?.dispose(); } catch (_) {} decoder = undefined;
+      try { await client?.close(); } catch (_) {} client = undefined;
+      try { await adb?.close(); } catch (_) {} adb = undefined;
+      try { await transport?.close(); } catch (_) {} transport = undefined;
+      try { await audioContext?.close(); } catch (_) {} audioContext = undefined; nextAudioTime = 0;
+    }
+    function friendlyError(error) {
+      const raw = error?.message || String(error);
+      if (/authoriz|authenticat|timed out/i.test(raw)) return 'USB debugging was not approved. Unlock the phone, reconnect it, then accept the RSA fingerprint prompt. If no prompt appears, revoke USB debugging authorizations in Developer options and try again.';
+      if (/claimInterface|claim interface|busy/i.test(raw)) return 'The phone USB interface is busy. Close Android Studio, adb, native scrcpy, phone-suite software, then reconnect and retry.';
+      if (/device.*not found|cancel/i.test(raw)) return 'No USB device was selected.';
+      return `Connection failed: ${raw}`;
     }
 
-    window.addEventListener('keydown', (e) => {
-      if (!scrcpyClient?.controller) return;
-      if (['INPUT', 'SELECT', 'BUTTON'].includes(document.activeElement.tagName)) return;
-
-      const code = keycodeMap[e.key] || keycodeMap[e.code];
-
-      if (code) {
-        e.preventDefault();
-        scrcpyClient.controller.injectKeyCode({ action: 0, keyCode: code, repeat: 0, metaState: 0 });
-        scrcpyClient.controller.injectKeyCode({ action: 1, keyCode: code, repeat: 0, metaState: 0 });
-      } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        e.preventDefault();
-        scrcpyClient.controller.injectText(e.key);
-      }
-    });
-
-    document.getElementById('nav-back').onclick = () => sendKey(4);
-    document.getElementById('nav-home').onclick = () => sendKey(3);
-    document.getElementById('nav-recents').onclick = () => sendKey(187);
-    document.getElementById('nav-power').onclick = () => sendKey(26);
-    document.getElementById('nav-volup').onclick = () => sendKey(24);
-    document.getElementById('nav-voldown').onclick = () => sendKey(25);
-
-    function sendKey(keyCode) {
-      if (scrcpyClient?.controller) {
-        scrcpyClient.controller.injectKeyCode({ action: 0, keyCode, repeat: 0, metaState: 0 });
-        scrcpyClient.controller.injectKeyCode({ action: 1, keyCode, repeat: 0, metaState: 0 });
-      }
-    }
-  });
-</script>
+    connectButton.addEventListener('click', connect);
+    emptyConnectButton.addEventListener('click', connect);
+    disconnectButton.addEventListener('click', disconnect);
+    $('#btn-fullscreen').addEventListener('click', () => document.fullscreenElement ? document.exitFullscreen() : stage.requestFullscreen().catch((error) => notify(`Fullscreen unavailable: ${error.message}`, 'error')));
+    document.addEventListener('fullscreenchange', () => $('#btn-fullscreen').textContent = document.fullscreenElement ? 'Exit fullscreen' : 'Fullscreen');
+    navButtons.forEach((button) => button.addEventListener('click', () => sendKey(Number(button.dataset.key))));
+    ['pointerdown','pointermove','pointerup','pointercancel'].forEach((name) => screen.addEventListener(name, onPointer));
+    screen.addEventListener('contextmenu', (event) => event.preventDefault());
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('keyup', onKey);
+    window.addEventListener('beforeunload', () => { void cleanup(); });
+    if (!window.isSecureContext || !navigator.usb) notify('Open from localhost or HTTPS in Chrome/Edge to enable WebUSB.', 'warn');
+  </script>
 </body>
 </html>
