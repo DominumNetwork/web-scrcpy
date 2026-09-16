@@ -154,16 +154,16 @@
     import { Adb, AdbDaemonTransport } from 'https://esm.sh/@yume-chan/adb@2.6.3?bundle';
     import AdbWebCredentialStore from 'https://esm.sh/@yume-chan/adb-credential-web@2.1.0?bundle';
     import { AdbDaemonWebUsbDeviceManager } from 'https://esm.sh/@yume-chan/adb-daemon-webusb@2.3.2?bundle';
-    import { AdbScrcpyClient, AdbScrcpyOptions2_1 } from 'https://esm.sh/@yume-chan/adb-scrcpy@2.3.2?bundle';
-    import { DefaultServerPath, AndroidKeyEventAction, AndroidKeyEventMeta, AndroidMotionEventAction, AndroidMotionEventButton, ScrcpyPointerId, ScrcpyAudioCodec } from 'https://esm.sh/@yume-chan/scrcpy@2.3.0?bundle';
+    import { AdbScrcpyClient, AdbScrcpyOptions2_3 } from 'https://esm.sh/@yume-chan/adb-scrcpy@2.3.2?bundle';
+    import { DefaultServerPath, AndroidKeyEventAction, AndroidKeyEventMeta, AndroidMotionEventAction, AndroidMotionEventButton, ScrcpyPointerId, ScrcpyAudioCodec, ScrcpyOptions2_3 } from 'https://esm.sh/@yume-chan/scrcpy@2.3.0?bundle';
     import { TinyH264Decoder } from 'https://esm.sh/@yume-chan/scrcpy-decoder-tinyh264@2.1.0?bundle';
 
     window.__wireframeModuleReady = true;
 
-    // Scrcpy 2.1 crashes on recent Android versions while calling SurfaceControl.
-    // Keep the proven 2.1 option set, but tell the server its actual 4.1 version.
-    const SERVER_URL = './scrcpy-server-v4.1';
-    const SERVER_VERSION = '4.1';
+    // Keep the server and option serializer on the same 2.3 protocol revision.
+    // A 3.1 serializer can open the connection, but its stream/control layout
+    // does not match this 2.3 server, leaving the canvas and controller idle.
+    const SERVER_URL = './scrcpy-server-v2.3';
     const $ = (selector) => document.querySelector(selector);
     const screen = $('#screen');
     const shell = $('#screen-shell');
@@ -218,7 +218,7 @@
     }
     function getOptions() {
       const audio = $('#opt-audio').value === 'on';
-      return new AdbScrcpyOptions2_1({
+      const options = new ScrcpyOptions2_3({
         maxSize: Number($('#opt-size').value),
         bitRate: Number($('#opt-bitrate').value),
         maxFps: Number($('#opt-fps').value),
@@ -226,7 +226,12 @@
         ...(audio ? { audioCodec: ScrcpyAudioCodec.Raw } : {}),
         control: true,
         turnScreenOff: $('#opt-screen').value === 'off',
-      }, { version: SERVER_VERSION });
+        // TinyH264Decoder uses the per-frame metadata to configure itself from
+        // the encoder's codec-config buffer before decoding video frames.
+        sendFrameMeta: true,
+        sendDeviceMeta: true,
+      });
+      return new AdbScrcpyOptions2_3(options);
     }
     function requireCompatibleBrowser() {
       if (!window.isSecureContext) throw new Error('WebUSB needs a secure page. Serve this file from https:// or http://localhost (not a network share).');
