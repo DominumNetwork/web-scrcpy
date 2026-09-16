@@ -163,7 +163,7 @@
 
     window.__wireframeModuleReady = true;
 
-    const SERVER_URL = './scrcpy-server-v2.3';
+    const SERVER_URL = './scrcpy-server-v2.1';
     const $ = (selector) => document.querySelector(selector);
     const screen = $('#screen');
     const shell = $('#screen-shell');
@@ -222,8 +222,6 @@
         bitRate: Number($('#opt-bitrate').value),
         maxFps: Number($('#opt-fps').value),
         audio,
-        // Raw PCM can be scheduled directly by Web Audio. It avoids treating an
-        // encoded scrcpy audio stream as an HTML media file (the old page did neither).
         ...(audio ? { audioCodec: ScrcpyAudioCodec.Raw } : {}),
         control: true,
         turnScreenOff: $('#opt-screen').value === 'off',
@@ -234,8 +232,6 @@
       if (!navigator.usb) throw new Error('WebUSB is unavailable. Open this in current Chrome or Edge on desktop.');
     }
     async function requestDevice() {
-      // requestDevice is intentionally invoked from the click handler: the browser
-      // shows its USB chooser and Android then receives the ADB authentication request.
       const manager = AdbDaemonWebUsbDeviceManager.BROWSER;
       return manager.requestDevice();
     }
@@ -261,7 +257,6 @@
         await AdbScrcpyClient.pushServer(adb, response.body);
 
         setStatus('Starting screen mirror', 'busy');
-        // Create AudioContext during the click flow so browser autoplay policy permits output.
         if ($('#opt-audio').value === 'on') startAudio();
         client = await AdbScrcpyClient.start(adb, DefaultServerPath, getOptions());
         await attachStreams();
@@ -315,7 +310,6 @@
     }
     function playPcm(bytes) {
       if (!audioContext || !bytes?.byteLength) return;
-      // scrcpy raw audio is signed, interleaved 16-bit stereo PCM at 48 kHz.
       const samples = Math.floor(bytes.byteLength / 4);
       if (!samples) return;
       const buffer = audioContext.createBuffer(2, samples, 48000);
@@ -328,7 +322,6 @@
       const source = audioContext.createBufferSource();
       source.buffer = buffer; source.connect(audioContext.destination);
       const now = audioContext.currentTime;
-      // Do not let a stalled USB stream build seconds of delayed audio.
       if (nextAudioTime < now - 0.1 || nextAudioTime > now + 0.35) nextAudioTime = now + 0.035;
       source.start(nextAudioTime);
       nextAudioTime += buffer.duration;
