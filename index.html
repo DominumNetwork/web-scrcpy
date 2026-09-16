@@ -163,7 +163,10 @@
 
     window.__wireframeModuleReady = true;
 
-    const SERVER_URL = './scrcpy-server-v2.1';
+    // Scrcpy 2.1 crashes on recent Android versions while calling SurfaceControl.
+    // Keep the proven 2.1 option set, but tell the server its actual 4.1 version.
+    const SERVER_URL = './scrcpy-server-v4.1';
+    const SERVER_VERSION = '4.1';
     const $ = (selector) => document.querySelector(selector);
     const screen = $('#screen');
     const shell = $('#screen-shell');
@@ -226,7 +229,7 @@
         ...(audio ? { audioCodec: ScrcpyAudioCodec.Raw } : {}),
         control: true,
         turnScreenOff: $('#opt-screen').value === 'off',
-      });
+      }, { version: SERVER_VERSION });
     }
     function requireCompatibleBrowser() {
       if (!window.isSecureContext) throw new Error('WebUSB needs a secure page. Serve this file from https:// or http://localhost (not a network share).');
@@ -425,6 +428,7 @@
     }
     function friendlyError(error) {
       const raw = `${error?.message || String(error)} ${serverErrorDetail(error)}`;
+      if (/SurfaceControl|createDisplay|NoSuchMethodException|InvocationTargetException/i.test(raw)) return 'The scrcpy server is incompatible with this Android version. This repaired page is configured to use scrcpy 4.1; confirm that scrcpy-server-v4.1 is next to the HTML file, then reload the page.';
       if (/authoriz|authenticat|timed out/i.test(raw)) return 'USB debugging was not approved. Unlock the phone, reconnect it, then accept the RSA fingerprint prompt. If no prompt appears, revoke USB debugging authorizations in Developer options and try again.';
       if (/claimInterface|claim interface|busy/i.test(raw)) return 'The phone USB interface is busy. Close Android Studio, adb, native scrcpy, phone-suite software, then reconnect and retry.';
       if (/audio.*(capture|disabled|encoder)|failed to start audio/i.test(raw)) return 'Audio forwarding could not start. Mirror with audio off; Android 11 needs the phone unlocked when starting, and Android 10 or older cannot capture device audio.';
