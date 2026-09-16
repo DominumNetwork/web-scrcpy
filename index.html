@@ -35,7 +35,7 @@
     label { display:grid; gap:5px; color:var(--muted); font-size:11px; }
     label.wide { grid-column:1 / -1; }
     select { width:100%; min-height:34px; padding:6px 27px 6px 9px; color:var(--ink); background:#142239; border:1px solid #2b405e; border-radius:7px; }
-    .tip { margin:4px 1px 22px; padding:11px; color:#aebcd0; background:#101e32; border:1px solid #213752; border-radius:9px; font-size:12px; }
+    .tip { margin:4px 1px 22px; padding:11px; color:#aebcd0; background:#101e32; border:1px solid #213752; border-radius:99px; font-size:12px; }
     .tip strong { color:#dce9ff; }
     .tips-list { margin:7px 0 0 16px; padding:0; color:#9aacC5; }
     .tips-list li { margin:4px 0; }
@@ -80,7 +80,6 @@
         <button id="btn-connect" class="button primary">Connect Android</button>
       </div>
     </header>
-
     <div class="layout">
       <aside>
         <p class="section-label">Stream settings</p>
@@ -111,7 +110,6 @@
         <p class="section-label">Keyboard shortcuts</p>
         <div class="shortcuts"><div class="shortcut"><span>Back</span><kbd>Esc</kbd></div><div class="shortcut"><span>Home</span><kbd>Home</kbd></div><div class="shortcut"><span>Recent apps</span><kbd>End</kbd></div><div class="shortcut"><span>Focus phone</span><kbd>Click</kbd></div></div>
       </aside>
-
       <main id="stage" class="stage">
         <div class="stats"><span class="stat"><b id="stat-fps">—</b> FPS</span><span class="stat" id="stat-audio">Audio —</span></div>
         <div id="screen-shell"><canvas id="screen" width="720" height="1280" tabindex="0" aria-label="Connected Android screen"></canvas></div>
@@ -128,7 +126,6 @@
       </main>
     </div>
   </div>
-
   <script>
     // Static ES-module imports are resolved before module code runs. Keep a small
     // non-module watchdog so a CDN/import failure is visible to the user.
@@ -151,15 +148,20 @@
     }, 7000);
   </script>
   <script type="module">
+    // Tango publishes its packages independently: matching the same number across
+    // all packages causes 404 module imports (and leaves buttons looking inert).
+    // These are the compatible, published browser package versions.
     import { Adb, AdbDaemonTransport } from 'https://esm.sh/@yume-chan/adb@2.6.3?bundle';
     import AdbWebCredentialStore from 'https://esm.sh/@yume-chan/adb-credential-web@2.1.0?bundle';
     import { AdbDaemonWebUsbDeviceManager } from 'https://esm.sh/@yume-chan/adb-daemon-webusb@2.3.2?bundle';
-    import { AdbScrcpyClient, AdbScrcpyOptions3_1 } from 'https://esm.sh/@yume-chan/adb-scrcpy@2.3.2?bundle';
+    import { AdbScrcpyClient, AdbScrcpyOptions2_1 } from 'https://esm.sh/@yume-chan/adb-scrcpy@2.3.2?bundle';
     import { DefaultServerPath, AndroidKeyEventAction, AndroidKeyEventMeta, AndroidMotionEventAction, AndroidMotionEventButton, ScrcpyPointerId, ScrcpyAudioCodec } from 'https://esm.sh/@yume-chan/scrcpy@2.3.0?bundle';
     import { TinyH264Decoder } from 'https://esm.sh/@yume-chan/scrcpy-decoder-tinyh264@2.1.0?bundle';
 
     window.__wireframeModuleReady = true;
 
+    // Scrcpy 2.1 crashes on recent Android versions while calling SurfaceControl.
+    // Keep the proven 2.1 option set, but tell the server its actual 4.1 version.
     const SERVER_URL = './scrcpy-server-v4.1';
     const SERVER_VERSION = '4.1';
     const $ = (selector) => document.querySelector(selector);
@@ -216,31 +218,15 @@
     }
     function getOptions() {
       const audio = $('#opt-audio').value === 'on';
-      const maxSize = Number($('#opt-size').value);
-      const bitRate = Number($('#opt-bitrate').value);
-      const maxFps = Number($('#opt-fps').value);
-      const turnScreenOff = $('#opt-screen').value === 'off';
-    
-      const options = new AdbScrcpyOptions3_1({
-        maxSize,
-        bitRate,
-        maxFps,
+      return new AdbScrcpyOptions2_1({
+        maxSize: Number($('#opt-size').value),
+        bitRate: Number($('#opt-bitrate').value),
+        maxFps: Number($('#opt-fps').value),
         audio,
         ...(audio ? { audioCodec: ScrcpyAudioCodec.Raw } : {}),
         control: true,
-        turnScreenOff,
-      });
-
-      options.serialize = function () {
-        const args = AdbScrcpyOptions3_1.prototype.serialize.call(this);
-        return args.map((arg) => {
-          if (arg.startsWith('bit_rate=')) return arg.replace('bit_rate=', 'video_bit_rate=');
-          if (arg.startsWith('turn_screen_off=')) return arg.replace('turn_screen_off=', 'turn_screen_off=true'); 
-          return arg;
-        });
-      };
-    
-      return options;
+        turnScreenOff: $('#opt-screen').value === 'off',
+      }, { version: SERVER_VERSION });
     }
     function requireCompatibleBrowser() {
       if (!window.isSecureContext) throw new Error('WebUSB needs a secure page. Serve this file from https:// or http://localhost (not a network share).');
@@ -328,42 +314,21 @@
     async function attachStreams() {
       if (!client.videoStream) throw new Error('The phone did not provide a video stream.');
       const video = await client.videoStream;
-    
-      currentVideoWidth = video.width || video.metadata?.width || 0;
-      currentVideoHeight = video.height || video.metadata?.height || 0;
-    
+      currentVideoWidth = video.width || video.metadata.width || 0;
+      currentVideoHeight = video.height || video.metadata.height || 0;
       decoder = new TinyH264Decoder({ canvas: screen });
       decoder.sizeChanged(({ width, height }) => {
-        currentVideoWidth = width;
-        currentVideoHeight = height;
+        currentVideoWidth = width; currentVideoHeight = height;
       });
-    
-      const videoStream = video.stream;
-      
-      videoStream
-        .pipeTo(
-          new WritableStream({
-            async write(chunk) {
-              if (decoder && decoder.writable) {
-                const writer = decoder.writable.getWriter();
-                await writer.write(chunk);
-                writer.releaseLock();
-              }
-            },
-          })
-        )
-        .catch((error) => {
-          if (client) console.warn('Video stream ended:', error);
-        });
-    
-      if (!client.audioStream) {
-        statAudio.textContent = 'Audio off';
-        return;
-      }
+      void video.stream.pipeTo(decoder.writable).catch((error) => { if (client) notify(`Video stream ended: ${error.message || error}`, 'error'); });
 
+      if (!client.audioStream) { statAudio.textContent = 'Audio off'; return; }
       const audio = await client.audioStream;
       if (audio.type !== 'success') {
         statAudio.textContent = 'Audio unavailable';
+        const reason = audio?.error?.message || audio?.message;
+        notify(`Mirror connected, but this device cannot forward audio${reason ? `: ${reason}` : ' in the selected mode'}.`, 'warn');
+        console.warn('Scrcpy audio forwarding unavailable', audio);
         return;
       }
       statAudio.textContent = 'Audio on';
