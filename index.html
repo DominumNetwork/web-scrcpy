@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#09111f">
-  <title>Wireframe — Web Scrcpy</title>
+  <title>Wireframe — Android Mirror</title>
   <style>
     :root { color-scheme: dark; --ink:#edf4ff; --muted:#93a3bb; --panel:#121e31; --panel-2:#0d1728; --line:#263955; --blue:#68a7ff; --blue-deep:#377ce3; --green:#39d89c; --red:#ff7474; --shadow:0 20px 60px #02071399; }
     * { box-sizing:border-box; }
@@ -129,15 +129,41 @@
     </div>
   </div>
 
+  <script>
+    // Static ES-module imports are resolved before module code runs. Keep a small
+    // non-module watchdog so a CDN/import failure is visible to the user.
+    window.__wireframeModuleReady = false;
+    window.addEventListener('error', (event) => {
+      if (event.target?.tagName === 'SCRIPT' && !window.__wireframeModuleReady) {
+        document.querySelector('#status-label').textContent = 'App failed to load';
+      }
+    }, true);
+    setTimeout(() => {
+      if (window.__wireframeModuleReady) return;
+      const message = 'The app library did not load. Refresh once, then check that this deployment can reach esm.sh and jsDelivr (ad blockers and strict corporate networks can block them).';
+      const primary = document.querySelector('#btn-connect');
+      const empty = document.querySelector('#btn-connect-empty');
+      primary.disabled = empty.disabled = true;
+      document.querySelector('#status-label').textContent = 'App failed to load';
+      const toast = document.querySelector('#toast');
+      toast.textContent = message;
+      toast.className = 'toast error show';
+    }, 7000);
+  </script>
   <script type="module">
-    import { Adb, AdbDaemonTransport } from 'https://esm.sh/@yume-chan/adb@2.3.2?bundle';
-    import AdbWebCredentialStore from 'https://esm.sh/@yume-chan/adb-credential-web@2.3.2?bundle';
+    // Tango publishes its packages independently: matching the same number across
+    // all packages causes 404 module imports (and leaves buttons looking inert).
+    // These are the compatible, published browser package versions.
+    import { Adb, AdbDaemonTransport } from 'https://esm.sh/@yume-chan/adb@2.6.3?bundle';
+    import AdbWebCredentialStore from 'https://esm.sh/@yume-chan/adb-credential-web@2.1.0?bundle';
     import { AdbDaemonWebUsbDeviceManager } from 'https://esm.sh/@yume-chan/adb-daemon-webusb@2.3.2?bundle';
     import { AdbScrcpyClient, AdbScrcpyOptions2_1 } from 'https://esm.sh/@yume-chan/adb-scrcpy@2.3.2?bundle';
-    import { DefaultServerPath, AndroidKeyEventAction, AndroidKeyEventMeta, AndroidMotionEventAction, AndroidMotionEventButton, ScrcpyPointerId, ScrcpyAudioCodec } from 'https://esm.sh/@yume-chan/scrcpy@2.3.2?bundle';
-    import { TinyH264Decoder } from 'https://esm.sh/@yume-chan/scrcpy-decoder-tinyh264@2.3.2?bundle';
+    import { DefaultServerPath, AndroidKeyEventAction, AndroidKeyEventMeta, AndroidMotionEventAction, AndroidMotionEventButton, ScrcpyPointerId, ScrcpyAudioCodec } from 'https://esm.sh/@yume-chan/scrcpy@2.3.0?bundle';
+    import { TinyH264Decoder } from 'https://esm.sh/@yume-chan/scrcpy-decoder-tinyh264@2.1.0?bundle';
 
-    const SERVER_URL = 'https://cdn.jsdelivr.net/npm/@yume-chan/scrcpy@2.3.2/bin/scrcpy-server';
+    window.__wireframeModuleReady = true;
+
+    const SERVER_URL = 'https://cdn.jsdelivr.net/npm/@yume-chan/scrcpy@2.3.0/bin/scrcpy-server';
     const $ = (selector) => document.querySelector(selector);
     const screen = $('#screen');
     const shell = $('#screen-shell');
@@ -196,6 +222,8 @@
         bitRate: Number($('#opt-bitrate').value),
         maxFps: Number($('#opt-fps').value),
         audio,
+        // Raw PCM can be scheduled directly by Web Audio. It avoids treating an
+        // encoded scrcpy audio stream as an HTML media file (the old page did neither).
         ...(audio ? { audioCodec: ScrcpyAudioCodec.Raw } : {}),
         control: true,
         turnScreenOff: $('#opt-screen').value === 'off',
@@ -206,6 +234,8 @@
       if (!navigator.usb) throw new Error('WebUSB is unavailable. Open this in current Chrome or Edge on desktop.');
     }
     async function requestDevice() {
+      // requestDevice is intentionally invoked from the click handler: the browser
+      // shows its USB chooser and Android then receives the ADB authentication request.
       const manager = AdbDaemonWebUsbDeviceManager.BROWSER;
       return manager.requestDevice();
     }
@@ -231,6 +261,7 @@
         await AdbScrcpyClient.pushServer(adb, response.body);
 
         setStatus('Starting screen mirror', 'busy');
+        // Create AudioContext during the click flow so browser autoplay policy permits output.
         if ($('#opt-audio').value === 'on') startAudio();
         client = await AdbScrcpyClient.start(adb, DefaultServerPath, getOptions());
         await attachStreams();
@@ -284,6 +315,7 @@
     }
     function playPcm(bytes) {
       if (!audioContext || !bytes?.byteLength) return;
+      // scrcpy raw audio is signed, interleaved 16-bit stereo PCM at 48 kHz.
       const samples = Math.floor(bytes.byteLength / 4);
       if (!samples) return;
       const buffer = audioContext.createBuffer(2, samples, 48000);
@@ -296,6 +328,7 @@
       const source = audioContext.createBufferSource();
       source.buffer = buffer; source.connect(audioContext.destination);
       const now = audioContext.currentTime;
+      // Do not let a stalled USB stream build seconds of delayed audio.
       if (nextAudioTime < now - 0.1 || nextAudioTime > now + 0.35) nextAudioTime = now + 0.035;
       source.start(nextAudioTime);
       nextAudioTime += buffer.duration;
