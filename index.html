@@ -312,21 +312,27 @@
     async function attachStreams() {
       if (!client.videoStream) throw new Error('The phone did not provide a video stream.');
       const video = await client.videoStream;
-      currentVideoWidth = video.width || video.metadata.width || 0;
-      currentVideoHeight = video.height || video.metadata.height || 0;
+      
+      currentVideoWidth = video.width || video.metadata?.width || 0;
+      currentVideoHeight = video.height || video.metadata?.height || 0;
+      
       decoder = new TinyH264Decoder({ canvas: screen });
       decoder.sizeChanged(({ width, height }) => {
-        currentVideoWidth = width; currentVideoHeight = height;
+        currentVideoWidth = width; 
+        currentVideoHeight = height;
       });
-      void video.stream.pipeTo(decoder.writable).catch((error) => { if (client) notify(`Video stream ended: ${error.message || error}`, 'error'); });
-
+    
+      const stream = video.stream;
+    
+      void stream.pipeTo(decoder.writable).catch((error) => { 
+        if (client) notify(`Video stream ended: ${error.message || error}`, 'error'); 
+      });
+    
       if (!client.audioStream) { statAudio.textContent = 'Audio off'; return; }
+      
       const audio = await client.audioStream;
       if (audio.type !== 'success') {
         statAudio.textContent = 'Audio unavailable';
-        const reason = audio?.error?.message || audio?.message;
-        notify(`Mirror connected, but this device cannot forward audio${reason ? `: ${reason}` : ' in the selected mode'}.`, 'warn');
-        console.warn('Scrcpy audio forwarding unavailable', audio);
         return;
       }
       statAudio.textContent = 'Audio on';
