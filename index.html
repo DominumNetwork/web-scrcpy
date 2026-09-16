@@ -97,7 +97,7 @@
             <select id="opt-bitrate"><option value="12000000">12 Mbps</option><option value="8000000" selected>8 Mbps</option><option value="4000000">4 Mbps</option><option value="2000000">2 Mbps</option></select>
           </label>
           <label>Audio
-            <select id="opt-audio"><option value="on" selected>Passthrough on</option><option value="off">Off</option></select>
+            <select id="opt-audio"><option value="off" selected>Off (recommended)</option><option value="on">Enable raw passthrough</option></select>
           </label>
           <label>Phone screen
             <select id="opt-screen"><option value="keep" selected>Keep on</option><option value="off">Turn off</option></select>
@@ -192,6 +192,7 @@
     let toastTimer;
     let statTimer;
     let lastRendered = 0;
+    let serverLog = [];
 
     function setStatus(label, state = '') {
       statusLabel.textContent = label;
@@ -235,31 +236,59 @@
       const manager = AdbDaemonWebUsbDeviceManager.BROWSER;
       return manager.requestDevice();
     }
+    function withTimeout(promise, milliseconds, activity) {
+      let timer;
+      const deadline = new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`Timed out while ${activity}.`)), milliseconds);
+      });
+      return Promise.race([promise, deadline]).finally(() => clearTimeout(timer));
+    }
+    function startBackgroundReaders() {
+      // ADB multiplexes all logical streams over one USB connection. Drain streams
+      // we do not otherwise display, or they can eventually stall the session.
+      if (client?.output) {
+        void client.output.pipeTo(new WritableStream({
+          write(line) {
+            const text = String(line).trim();
+            if (!text) return;
+            serverLog.push(text);
+            serverLog = serverLog.slice(-12);
+            console.debug('[scrcpy server]', text);
+          },
+        })).catch((error) => { if (client) console.warn('Scrcpy server output ended', error); });
+      }
+      if (client?.clipboard) {
+        void client.clipboard.pipeTo(new WritableStream({ write() {} }))
+          .catch((error) => { if (client) console.warn('Clipboard stream ended', error); });
+      }
+    }
     async function connect() {
       if (client) return;
       try {
         requireCompatibleBrowser();
         setConnecting(true);
+        serverLog = [];
         setStatus('Choose USB device', 'busy');
         notify('Select your phone in the browser chooser. Keep the phone unlocked.', 'warn');
         const device = await requestDevice();
         if (!device) { setStatus('No device'); return; }
 
-        transport = await device.connect();
+        transport = await withTimeout(device.connect(), 15000, 'opening the USB connection');
         setStatus('Approve USB debugging', 'busy');
         notify('Check your Android now and tap “Allow USB debugging”.', 'warn');
         const authenticated = await authenticateWithTimeout(device, transport);
         adb = new Adb(authenticated);
 
         setStatus('Uploading mirror service', 'busy');
-        const response = await fetch(SERVER_URL);
+        const response = await withTimeout(fetch(SERVER_URL), 15000, 'downloading the scrcpy server');
         if (!response.ok || !response.body) throw new Error(`Could not download the scrcpy server (${response.status}). Check your internet connection.`);
-        await AdbScrcpyClient.pushServer(adb, response.body);
+        await withTimeout(AdbScrcpyClient.pushServer(adb, response.body), 30000, 'uploading the scrcpy server');
 
         setStatus('Starting screen mirror', 'busy');
         if ($('#opt-audio').value === 'on') startAudio();
-        client = await AdbScrcpyClient.start(adb, DefaultServerPath, getOptions());
-        await attachStreams();
+        client = await withTimeout(AdbScrcpyClient.start(adb, DefaultServerPath, getOptions()), 30000, 'starting scrcpy on the phone');
+        startBackgroundReaders();
+        await withTimeout(attachStreams(), 15000, 'opening the video and audio streams');
         setConnected(true);
         setStatus('Connected', 'connected');
         notify('Connected. Click the phone screen to send keyboard input.');
@@ -267,9 +296,10 @@
       } catch (error) {
         await cleanup();
         const message = friendlyError(error);
+        const detail = serverErrorDetail(error);
         setStatus('Connection failed');
-        notify(message, 'error');
-        console.error('Wireframe connection error:', error);
+        notify(detail ? `${message} Server: ${detail}` : message, 'error');
+        console.error('Wireframe connection error:', error, error?.output, serverLog);
       } finally {
         setConnecting(false);
       }
@@ -296,7 +326,9 @@
       const audio = await client.audioStream;
       if (audio.type !== 'success') {
         statAudio.textContent = 'Audio unavailable';
-        notify('Mirror connected, but this device cannot forward audio in the selected mode.', 'warn');
+        const reason = audio?.error?.message || audio?.message;
+        notify(`Mirror connected, but this device cannot forward audio${reason ? `: ${reason}` : ' in the selected mode'}.`, 'warn');
+        console.warn('Scrcpy audio forwarding unavailable', audio);
         return;
       }
       statAudio.textContent = 'Audio on';
@@ -305,7 +337,7 @@
     }
     function startAudio() {
       if (!audioContext) audioContext = new AudioContext({ latencyHint: 'interactive', sampleRate: 48000 });
-      void audioContext.resume();
+      void audioContext.resume().catch((error) => console.warn('Browser audio output could not start', error));
       nextAudioTime = audioContext.currentTime + 0.08;
     }
     function playPcm(bytes) {
@@ -392,11 +424,17 @@
       try { await audioContext?.close(); } catch (_) {} audioContext = undefined; nextAudioTime = 0;
     }
     function friendlyError(error) {
-      const raw = error?.message || String(error);
+      const raw = `${error?.message || String(error)} ${serverErrorDetail(error)}`;
       if (/authoriz|authenticat|timed out/i.test(raw)) return 'USB debugging was not approved. Unlock the phone, reconnect it, then accept the RSA fingerprint prompt. If no prompt appears, revoke USB debugging authorizations in Developer options and try again.';
       if (/claimInterface|claim interface|busy/i.test(raw)) return 'The phone USB interface is busy. Close Android Studio, adb, native scrcpy, phone-suite software, then reconnect and retry.';
+      if (/audio.*(capture|disabled|encoder)|failed to start audio/i.test(raw)) return 'Audio forwarding could not start. Mirror with audio off; Android 11 needs the phone unlocked when starting, and Android 10 or older cannot capture device audio.';
       if (/device.*not found|cancel/i.test(raw)) return 'No USB device was selected.';
       return `Connection failed: ${raw}`;
+    }
+    function serverErrorDetail(error) {
+      const output = Array.isArray(error?.output) ? error.output : [];
+      const details = [...output, ...serverLog].map(String).map((line) => line.trim()).filter(Boolean);
+      return details.slice(-4).join(' ').replace(/\s+/g, ' ').slice(0, 420);
     }
 
     connectButton.addEventListener('click', connect);
