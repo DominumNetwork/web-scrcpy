@@ -27,12 +27,17 @@
     .dot.busy { background:#ffc55a; box-shadow:0 0 0 3px #ffc55a1e; animation:pulse 1.25s infinite; }
     .dot.connected { background:var(--green); box-shadow:0 0 0 3px #39d89c24; }
     .top-actions { margin-left:auto; display:flex; align-items:center; gap:8px; }
-    .button { min-height:35px; padding:7px 12px; border-radius:8px; color:var(--ink); background:#1d304a; transition:.16s ease; }
+    .button { min-height:35px; padding:7px 12px; border-radius:8px; color:var(--ink); background:#1d304a; transition:.16s ease; display:inline-flex; align-items:center; justify-content:center; gap:6px; font-weight:500; }
     .button:hover { filter:brightness(1.16); transform:translateY(-1px); }
     .button.primary { color:#061223; background:linear-gradient(135deg,#8dc2ff,#5994ff); font-weight:700; }
     .button.danger { color:#ffd5d5; background:#542c39; }
     .button.ghost { background:transparent; color:var(--muted); border:1px solid var(--line); }
+    .button.secondary { background:#162842; color:#c6d8f5; border:1px solid #2b4366; }
+    .button.secondary:hover { background:#1f3657; }
+    .button.small { min-height:28px; padding:4px 9px; font-size:12px; border-radius:6px; }
     .button:disabled { cursor:wait; opacity:.56; transform:none; }
+    .badge { display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; padding:0 5px; border-radius:999px; font-size:10px; font-weight:700; background:#243c60; color:#cbe0ff; }
+    .badge.error { background:#a93448; color:#fff; }
     .layout { min-height:0; display:grid; grid-template-columns:278px minmax(0,1fr); }
     aside { overflow:auto; padding:17px 14px; background:#0c1728; border-right:1px solid var(--line); }
     .section-label { margin:0 0 8px 6px; color:#7f91ac; font-size:10px; font-weight:750; letter-spacing:.1em; text-transform:uppercase; }
@@ -64,10 +69,65 @@
     .stats { position:absolute; z-index:4; top:15px; right:18px; display:flex; gap:7px; }
     .stat { padding:5px 8px; color:#afc0d7; background:#0a1424c9; border:1px solid #2a3e5b; border-radius:7px; font-size:11px; backdrop-filter:blur(8px); }
     .stat b { color:#f0f6ff; font-variant-numeric:tabular-nums; }
-    .toast { position:absolute; z-index:8; bottom:68px; left:50%; max-width:min(620px,calc(100% - 32px)); padding:10px 13px; color:#dfeaff; background:#17263dda; border:1px solid #3b5880; border-radius:9px; box-shadow:var(--shadow); text-align:center; transform:translate(-50%,140px); transition:transform .25s ease; backdrop-filter:blur(12px); }
+    .toast { position:absolute; z-index:8; bottom:68px; left:50%; max-width:min(680px,calc(100% - 32px)); padding:10px 14px; color:#dfeaff; background:#17263dda; border:1px solid #3b5880; border-radius:10px; box-shadow:var(--shadow); display:flex; flex-direction:column; gap:8px; align-items:center; text-align:center; transform:translate(-50%,140px); transition:transform .25s cubic-bezier(.16,1,.3,1); backdrop-filter:blur(14px); }
     .toast.show { transform:translate(-50%,0); }
-    .toast.error { border-color:#a94f61; color:#ffdfe3; background:#35202cdc; }
-    .toast.warn { border-color:#a58045; color:#fff0cd; background:#352b1edc; }
+    .toast.error { border-color:#d44b64; color:#ffebee; background:#361724ee; box-shadow:0 12px 40px #a9344840; }
+    .toast.warn { border-color:#b58a3a; color:#fff5dd; background:#362c19ee; }
+    .toast-content { font-size:13px; line-height:1.4; }
+    .toast-actions { display:flex; flex-wrap:wrap; gap:6px; align-items:center; justify-content:center; }
+    .toast-btn { min-height:26px; padding:3px 8px; border-radius:5px; font-size:11px; font-weight:600; color:#fff; background:#5a2b38; border:1px solid #944254; cursor:pointer; }
+    .toast-btn:hover { background:#78384a; }
+    .toast-btn.secondary { background:#1e3555; border-color:#355685; color:#c7dcff; }
+    .toast-btn.secondary:hover { background:#294975; }
+
+    .error-card { width:100%; margin-top:12px; padding:12px 14px; background:#29141e; border:1px solid #853143; border-radius:10px; text-align:left; font-size:12px; }
+    .error-card-title { display:flex; align-items:center; justify-content:space-between; color:#ff94a5; font-weight:700; margin-bottom:5px; }
+    .error-card-msg { color:#ffdbe2; word-break:break-word; margin-bottom:10px; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:11px; background:#190b12; padding:8px 10px; border-radius:6px; border:1px solid #58212d; max-height:110px; overflow-y:auto; white-space:pre-wrap; }
+    .error-card-actions { display:flex; flex-wrap:wrap; gap:6px; }
+
+    /* Modal Styles */
+    .modal-backdrop { position:fixed; inset:0; z-index:100; background:#040914cc; backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; padding:16px; opacity:0; pointer-events:none; transition:opacity .2s ease; }
+    .modal-backdrop.open { opacity:1; pointer-events:auto; }
+    .modal-window { width:min(960px,100%); max-height:88vh; background:#0c1626; border:1px solid #283e60; border-radius:14px; box-shadow:0 25px 70px #01040bcc; display:flex; flex-direction:column; overflow:hidden; transform:scale(.97); transition:transform .2s ease; }
+    .modal-backdrop.open .modal-window { transform:scale(1); }
+    .modal-header { display:flex; align-items:center; justify-content:space-between; padding:13px 18px; background:linear-gradient(180deg,#14243b,#0e1a2c); border-bottom:1px solid #223754; }
+    .modal-title { display:flex; align-items:center; gap:10px; font-size:15px; font-weight:750; color:#eaf2ff; }
+    .modal-title-meta { display:flex; align-items:center; gap:6px; }
+    .modal-close { width:30px; height:30px; border-radius:7px; background:#1b2d47; color:#a2b7d4; display:grid; place-items:center; font-size:16px; cursor:pointer; }
+    .modal-close:hover { background:#284368; color:#fff; }
+    
+    .modal-toolbar { padding:10px 18px; background:#0b1422; border-bottom:1px solid #1c2e47; display:flex; flex-wrap:wrap; gap:9px; align-items:center; justify-content:space-between; }
+    .toolbar-left, .toolbar-right { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+    .log-filter-btn { padding:4px 9px; font-size:11px; font-weight:600; border-radius:6px; background:#132237; color:#8ea4c2; border:1px solid #233959; cursor:pointer; }
+    .log-filter-btn:hover { background:#1b304e; color:#dbe7f7; }
+    .log-filter-btn.active { background:#254877; color:#ffffff; border-color:#4881cc; }
+    .log-filter-btn .count { opacity:.75; margin-left:3px; font-size:10px; }
+    .log-search { min-height:28px; width:160px; padding:3px 9px; font-size:11px; color:#edf4ff; background:#122035; border:1px solid #233959; border-radius:6px; }
+    .log-search:focus { outline:none; border-color:#5c97ea; }
+    .toggle-label { display:inline-flex; align-items:center; gap:5px; font-size:11px; color:#8ea4c2; cursor:pointer; user-select:none; }
+
+    .modal-body { flex:1; min-height:0; display:flex; flex-direction:column; overflow:hidden; padding:12px 18px; background:#080f1b; gap:10px; }
+    .log-terminal { flex:1; min-height:220px; overflow-y:auto; overflow-x:auto; background:#050a12; border:1px solid #1a2c46; border-radius:8px; padding:10px; font:11.5px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace; color:#bfd1ec; }
+    .log-line { padding:2px 4px; border-radius:3px; white-space:pre-wrap; word-break:break-all; }
+    .log-line:hover { background:#0e1b2f; }
+    .log-ts { color:#5e7497; user-select:none; margin-right:6px; }
+    .log-cat { color:#6bb2ff; font-weight:700; margin-right:6px; }
+    .log-lvl-info .log-cat { color:#58a6ff; }
+    .log-lvl-warn { background:#2a201244; color:#ffe299; }
+    .log-lvl-warn .log-cat { color:#f0b429; }
+    .log-lvl-error { background:#3b141d55; color:#ffb0be; }
+    .log-lvl-error .log-cat { color:#ff6b82; font-weight:bold; }
+    .log-lvl-server { color:#5ef5c2; }
+    .log-lvl-server .log-cat { color:#38d9a9; }
+    .log-lvl-debug { color:#7d91ae; }
+    .log-lvl-debug .log-cat { color:#627999; }
+    .log-lvl-touch { color:#c084fc; }
+    .log-lvl-touch .log-cat { color:#a855f7; }
+    .log-data { margin-top:2px; margin-left:18px; padding:4px 8px; background:#0c1524; border-left:2px solid #294670; border-radius:0 4px 4px 0; color:#9db2d0; font-size:10.5px; }
+
+    .modal-footer { padding:10px 18px; background:#0c1727; border-top:1px solid #1e3350; display:flex; align-items:center; justify-content:space-between; font-size:11px; color:#788ea9; }
+    .copy-success-tooltip { color:#39d89c; font-weight:600; display:inline-flex; align-items:center; gap:4px; }
+
     .hidden { display:none !important; }
     @keyframes pulse { 50% { opacity:.45; transform:scale(.82); } }
     @media (max-width:850px) { .layout { grid-template-columns:1fr; } aside { display:none; } #screen { max-width:calc(100vw - 35px); max-height:calc(100vh - 80px); } .connection { display:none; } }
@@ -80,6 +140,7 @@
       <div class="brand"><span class="brand-mark">⌁</span><span>Wireframe</span></div>
       <div class="connection"><i id="status-dot" class="dot"></i><span id="status-label">No device</span></div>
       <div class="top-actions">
+        <button id="btn-logs" class="button secondary" title="View detailed debug logs"><span>📋 Logs</span><span id="log-badge" class="badge">0</span></button>
         <button id="btn-fullscreen" class="button ghost" title="Toggle full screen">Fullscreen</button>
         <button id="btn-disconnect" class="button danger hidden">Disconnect</button>
         <button id="btn-connect" class="button primary">Connect Android</button>
@@ -122,7 +183,16 @@
           <div class="empty-icon">⌁</div><h1>Ready to mirror your Android</h1>
           <p>Connect with WebUSB, then accept the ADB fingerprint on the device. Your keystrokes and taps are sent only while this mirror is connected.</p>
           <button id="btn-connect-empty" class="button primary">Choose a device</button>
-          <div class="requirements">Use Chrome or Edge over <code>https://</code> or <code>http://localhost</code>. Close Android Studio, adb, or native scrcpy first — they can hold the USB interface.</div>
+          <div id="error-card" class="error-card hidden">
+            <div class="error-card-title"><span>⚠️ Connection or Mirror Error</span><span id="error-card-time"></span></div>
+            <div id="error-card-msg" class="error-card-msg"></div>
+            <div class="error-card-actions">
+              <button id="btn-err-view-logs" class="button secondary small">🔍 View Debug Logs</button>
+              <button id="btn-err-copy-logs" class="button secondary small">📋 Copy Full Logs</button>
+              <button id="btn-err-download-logs" class="button secondary small">📥 Download .txt</button>
+            </div>
+          </div>
+          <div class="requirements" style="margin-top:14px;">Use Chrome or Edge over <code>https://</code> or <code>http://localhost</code>. Close Android Studio, adb, or native scrcpy first — they can hold the USB interface.</div>
         </section>
         <nav class="nav" aria-label="Android controls">
           <button data-key="4" title="Back" disabled>‹</button><button data-key="3" title="Home" disabled>○</button><button data-key="187" title="Recent apps" disabled>□</button><button data-key="26" title="Power" disabled>⏻</button><button data-key="24" title="Volume up" disabled>＋</button><button data-key="25" title="Volume down" disabled>−</button>
@@ -131,13 +201,57 @@
       </main>
     </div>
   </div>
+
+  <!-- Detailed Log Inspector Modal -->
+  <div id="logs-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-window">
+      <header class="modal-header">
+        <div class="modal-title">
+          <span>📋 System & Scrcpy Diagnostic Logs</span>
+          <div class="modal-title-meta">
+            <span id="modal-log-count" class="badge">0 entries</span>
+            <span id="modal-error-badge" class="badge error hidden">0 errors</span>
+          </div>
+        </div>
+        <button id="btn-close-modal" class="modal-close" title="Close log viewer (Esc)" aria-label="Close modal">✕</button>
+      </header>
+      <div class="modal-toolbar">
+        <div class="toolbar-left">
+          <button class="log-filter-btn active" data-filter="all">All <span class="count" id="filter-count-all">0</span></button>
+          <button class="log-filter-btn" data-filter="error">Errors <span class="count" id="filter-count-error">0</span></button>
+          <button class="log-filter-btn" data-filter="warn">Warnings <span class="count" id="filter-count-warn">0</span></button>
+          <button class="log-filter-btn" data-filter="server">Server <span class="count" id="filter-count-server">0</span></button>
+          <button class="log-filter-btn" data-filter="video">Video & Codec <span class="count" id="filter-count-video">0</span></button>
+          <button class="log-filter-btn" data-filter="usb">USB & ADB <span class="count" id="filter-count-usb">0</span></button>
+          <button class="log-filter-btn" data-filter="input">Input <span class="count" id="filter-count-input">0</span></button>
+        </div>
+        <div class="toolbar-right">
+          <input type="text" id="log-search" class="log-search" placeholder="Search logs…" aria-label="Filter logs by keyword">
+          <label class="toggle-label"><input type="checkbox" id="chk-autoscroll" checked> Auto-scroll</label>
+          <button id="btn-clear-logs" class="button ghost small" title="Clear recorded log entries">Clear</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div id="log-terminal" class="log-terminal" tabindex="0" role="region" aria-label="Log output stream"></div>
+      </div>
+      <footer class="modal-footer">
+        <div id="copy-status" class="copy-status-text">Export logs to share for debugging.</div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+          <button id="btn-copy-assistant" class="button secondary small" title="Copy formatted markdown report ready to paste into chat">🤖 Copy for AI Assistant</button>
+          <button id="btn-copy-logs" class="button secondary small" title="Copy complete plain text diagnostic logs">📋 Copy All Logs</button>
+          <button id="btn-download-logs" class="button primary small" title="Download raw diagnostic text file">📥 Download Log (.txt)</button>
+        </div>
+      </footer>
+    </div>
+  </div>
   <script>
     // Static ES-module imports are resolved before module code runs. Keep a small
     // non-module watchdog so a CDN/import failure is visible to the user.
     window.__wireframeModuleReady = false;
     window.addEventListener('error', (event) => {
       if (event.target?.tagName === 'SCRIPT' && !window.__wireframeModuleReady) {
-        document.querySelector('#status-label').textContent = 'App failed to load';
+        const lbl = document.querySelector('#status-label');
+        if (lbl) lbl.textContent = 'App failed to load';
       }
     }, true);
     setTimeout(() => {
@@ -147,10 +261,11 @@
       const empty = document.querySelector('#btn-connect-empty');
       if (primary) primary.disabled = true;
       if (empty) empty.disabled = true;
-      document.querySelector('#status-label').textContent = 'App failed to load';
+      const lbl = document.querySelector('#status-label');
+      if (lbl) lbl.textContent = 'App failed to load';
       const toast = document.querySelector('#toast');
       if (toast) {
-        toast.textContent = message;
+        toast.innerHTML = `<div class="toast-content">${message}</div>`;
         toast.className = 'toast error show';
       }
     }, 7000);
@@ -178,7 +293,7 @@
 
     window.__wireframeModuleReady = true;
 
-    // Use scrcpy-server-v2.3 in your repository root
+    // Use scrcpy-server-v2.3 in repository root
     const SERVER_URL = './scrcpy-server-v2.3';
     const $ = (selector) => document.querySelector(selector);
     const screen = $('#screen');
@@ -196,6 +311,585 @@
     const navButtons = [...document.querySelectorAll('.nav button')];
     const credentials = new AdbWebCredentialStore();
 
+    // Error and Modal UI Elements
+    const errorCard = $('#error-card');
+    const errorCardMsg = $('#error-card-msg');
+    const errorCardTime = $('#error-card-time');
+    const logsModal = $('#logs-modal');
+    const btnLogs = $('#btn-logs');
+    const btnCloseModal = $('#btn-close-modal');
+    const logBadge = $('#log-badge');
+    const modalLogCount = $('#modal-log-count');
+    const modalErrorBadge = $('#modal-error-badge');
+    const logTerminal = $('#log-terminal');
+    const logSearch = $('#log-search');
+    const chkAutoscroll = $('#chk-autoscroll');
+    const btnClearLogs = $('#btn-clear-logs');
+    const btnCopyLogs = $('#btn-copy-logs');
+    const btnCopyAssistant = $('#btn-copy-assistant');
+    const btnDownloadLogs = $('#btn-download-logs');
+    const copyStatus = $('#copy-status');
+    const filterButtons = [...document.querySelectorAll('.log-filter-btn')];
+
+    // ==========================================
+    // COMPREHENSIVE DIAGNOSTIC LOGGING ENGINE
+    // ==========================================
+    class DiagnosticLogger {
+      constructor() {
+        this.entries = [];
+        this.maxEntries = 3500;
+        this.counter = 0;
+        this.activeFilter = 'all';
+        this.searchQuery = '';
+        this.deviceInfo = null;
+        this.serverLogs = [];
+        this.lastError = null;
+        this.errorCount = 0;
+        this.warnCount = 0;
+        this.serverCount = 0;
+        this.videoCount = 0;
+        this.usbCount = 0;
+        this.inputCount = 0;
+
+        this.initConsoleHook();
+        this.initGlobalErrorHandlers();
+        this.logSystemEnvironment();
+      }
+
+      initConsoleHook() {
+        const orig = {
+          log: console.log.bind(console),
+          info: console.info.bind(console),
+          warn: console.warn.bind(console),
+          error: console.error.bind(console),
+          debug: console.debug.bind(console),
+        };
+        this.orig = orig;
+
+        console.log = (...args) => {
+          orig.log(...args);
+          this.addEntry('info', 'CONSOLE', args.map(this.formatArg).join(' '));
+        };
+        console.info = (...args) => {
+          orig.info(...args);
+          this.addEntry('info', 'CONSOLE', args.map(this.formatArg).join(' '));
+        };
+        console.warn = (...args) => {
+          orig.warn(...args);
+          this.addEntry('warn', 'CONSOLE', args.map(this.formatArg).join(' '));
+        };
+        console.error = (...args) => {
+          orig.error(...args);
+          this.addEntry('error', 'CONSOLE', args.map(this.formatArg).join(' '));
+        };
+        console.debug = (...args) => {
+          orig.debug(...args);
+          this.addEntry('debug', 'CONSOLE', args.map(this.formatArg).join(' '));
+        };
+      }
+
+      initGlobalErrorHandlers() {
+        window.addEventListener('error', (event) => {
+          const err = event.error;
+          this.error('SYS', `Uncaught exception: ${event.message}`, {
+            filename: event.filename,
+            lineno: event.lineno,
+            colno: event.colno,
+            stack: err?.stack || '(no stack)',
+          });
+        });
+        window.addEventListener('unhandledrejection', (event) => {
+          const reason = event.reason;
+          this.error('SYS', `Unhandled Promise Rejection: ${reason?.message || String(reason)}`, {
+            stack: reason?.stack || '(no stack)',
+            reason: typeof reason === 'object' ? this.safeSerialize(reason) : reason,
+          });
+        });
+      }
+
+      formatArg(arg) {
+        if (arg === undefined) return 'undefined';
+        if (arg === null) return 'null';
+        if (typeof arg === 'string') return arg;
+        if (arg instanceof Error) return `${arg.name}: ${arg.message}\n${arg.stack || ''}`;
+        try {
+          return JSON.stringify(arg);
+        } catch (_) {
+          return String(arg);
+        }
+      }
+
+      safeSerialize(obj) {
+        if (!obj || typeof obj !== 'object') return obj;
+        try {
+          return JSON.parse(JSON.stringify(obj, (k, v) => (typeof v === 'bigint' ? `${v.toString()}n` : v)));
+        } catch (_) {
+          return String(obj);
+        }
+      }
+
+      logSystemEnvironment() {
+        const glInfo = (() => {
+          try {
+            const c = document.createElement('canvas');
+            const gl = c.getContext('webgl2') || c.getContext('webgl');
+            if (!gl) return 'Unavailable';
+            const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+            return dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : 'Available';
+          } catch (_) {
+            return 'Error checking';
+          }
+        })();
+
+        this.info('SYS', '=== Wireframe Mirror Initializing ===');
+        this.info('SYS', 'Client Environment Profile', {
+          userAgent: navigator.userAgent,
+          platform: navigator.platform,
+          isSecureContext: window.isSecureContext,
+          hasWebUSB: Boolean(navigator.usb),
+          hasWebCodecs: typeof VideoDecoder !== 'undefined',
+          webCodecsSupported: Boolean(WebCodecsVideoDecoder?.isSupported),
+          webglRenderer: glInfo,
+          windowDimensions: `${window.innerWidth}x${window.innerHeight}`,
+          devicePixelRatio: window.devicePixelRatio,
+          serverBinaryUrl: SERVER_URL,
+          location: window.location.href,
+        });
+      }
+
+      addEntry(level, category, message, data = null) {
+        const now = new Date();
+        const timeString = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}.${String(now.getMilliseconds()).padStart(3, '0')}`;
+        const entry = {
+          id: ++this.counter,
+          time: now.toISOString(),
+          timeString,
+          level,
+          category,
+          message,
+          data: data ? this.safeSerialize(data) : null,
+        };
+
+        this.entries.push(entry);
+        if (this.entries.length > this.maxEntries) {
+          this.entries.shift();
+        }
+
+        // Update counts
+        if (level === 'error') this.errorCount++;
+        else if (level === 'warn') this.warnCount++;
+        if (category === 'SERVER') this.serverCount++;
+        if (category === 'VIDEO' || category === 'DECODER') this.videoCount++;
+        if (category === 'USB' || category === 'ADB') this.usbCount++;
+        if (category === 'INPUT' || category === 'TOUCH' || category === 'KEY') this.inputCount++;
+
+        this.updateBadgeCounts();
+
+        // Render to modal if open
+        if (logsModal.classList.contains('open')) {
+          this.appendLogToDom(entry);
+        }
+      }
+
+      info(category, message, data) { this.addEntry('info', category, message, data); }
+      warn(category, message, data) { this.addEntry('warn', category, message, data); }
+      error(category, message, data) {
+        this.lastError = { category, message, data, time: new Date().toISOString() };
+        this.addEntry('error', category, message, data);
+      }
+      debug(category, message, data) { this.addEntry('debug', category, message, data); }
+      server(message) {
+        this.serverLogs.push(message);
+        if (this.serverLogs.length > 500) this.serverLogs.shift();
+        this.addEntry('server', 'SERVER', message);
+      }
+      touch(message, data) { this.addEntry('touch', 'TOUCH', message, data); }
+      key(message, data) { this.addEntry('info', 'KEY', message, data); }
+
+      clear() {
+        this.entries = [];
+        this.serverLogs = [];
+        this.errorCount = 0;
+        this.warnCount = 0;
+        this.serverCount = 0;
+        this.videoCount = 0;
+        this.usbCount = 0;
+        this.inputCount = 0;
+        this.counter = 0;
+        this.updateBadgeCounts();
+        logTerminal.innerHTML = '<div style="color:#5e7497; padding:8px;">Logs cleared. Ready to record new events.</div>';
+      }
+
+      updateBadgeCounts() {
+        const total = this.entries.length;
+        logBadge.textContent = String(total);
+        modalLogCount.textContent = `${total} entries`;
+        
+        if (this.errorCount > 0) {
+          logBadge.className = 'badge error';
+          modalErrorBadge.textContent = `${this.errorCount} ${this.errorCount === 1 ? 'error' : 'errors'}`;
+          modalErrorBadge.classList.remove('hidden');
+        } else {
+          logBadge.className = 'badge';
+          modalErrorBadge.classList.add('hidden');
+        }
+
+        const fAll = $('#filter-count-all');
+        const fErr = $('#filter-count-error');
+        const fWarn = $('#filter-count-warn');
+        const fSrv = $('#filter-count-server');
+        const fVid = $('#filter-count-video');
+        const fUsb = $('#filter-count-usb');
+        const fInp = $('#filter-count-input');
+        if (fAll) fAll.textContent = String(total);
+        if (fErr) fErr.textContent = String(this.errorCount);
+        if (fWarn) fWarn.textContent = String(this.warnCount);
+        if (fSrv) fSrv.textContent = String(this.serverCount);
+        if (fVid) fVid.textContent = String(this.videoCount);
+        if (fUsb) fUsb.textContent = String(this.usbCount);
+        if (fInp) fInp.textContent = String(this.inputCount);
+      }
+
+      matchesFilter(entry) {
+        if (this.activeFilter === 'error' && entry.level !== 'error') return false;
+        if (this.activeFilter === 'warn' && entry.level !== 'warn') return false;
+        if (this.activeFilter === 'server' && entry.category !== 'SERVER') return false;
+        if (this.activeFilter === 'video' && entry.category !== 'VIDEO' && entry.category !== 'DECODER') return false;
+        if (this.activeFilter === 'usb' && entry.category !== 'USB' && entry.category !== 'ADB') return false;
+        if (this.activeFilter === 'input' && entry.category !== 'INPUT' && entry.category !== 'TOUCH' && entry.category !== 'KEY') return false;
+
+        if (this.searchQuery) {
+          const q = this.searchQuery.toLowerCase();
+          const matchMsg = entry.message.toLowerCase().includes(q);
+          const matchCat = entry.category.toLowerCase().includes(q);
+          const matchData = entry.data ? JSON.stringify(entry.data).toLowerCase().includes(q) : false;
+          if (!matchMsg && !matchCat && !matchData) return false;
+        }
+        return true;
+      }
+
+      appendLogToDom(entry) {
+        if (!this.matchesFilter(entry)) return;
+        const line = document.createElement('div');
+        line.className = `log-line log-lvl-${entry.level}`;
+        
+        let dataHtml = '';
+        if (entry.data) {
+          try {
+            dataHtml = `<div class="log-data">${JSON.stringify(entry.data, null, 2).replace(/</g, '&lt;')}</div>`;
+          } catch (_) {}
+        }
+
+        line.innerHTML = `<span class="log-ts">[${entry.timeString}]</span><span class="log-cat">[${entry.category}]</span><span>${entry.message.replace(/</g, '&lt;')}</span>${dataHtml}`;
+        logTerminal.appendChild(line);
+
+        if (chkAutoscroll.checked) {
+          logTerminal.scrollTop = logTerminal.scrollHeight;
+        }
+      }
+
+      renderAllLogs() {
+        logTerminal.innerHTML = '';
+        const matching = this.entries.filter((e) => this.matchesFilter(e));
+        if (matching.length === 0) {
+          logTerminal.innerHTML = `<div style="color:#5e7497; padding:12px; text-align:center;">No log entries match the current filter (${this.activeFilter}${this.searchQuery ? `, search: "${this.searchQuery}"` : ''}).</div>`;
+          return;
+        }
+        const frag = document.createDocumentFragment();
+        matching.forEach((entry) => {
+          const line = document.createElement('div');
+          line.className = `log-line log-lvl-${entry.level}`;
+          let dataHtml = '';
+          if (entry.data) {
+            try {
+              dataHtml = `<div class="log-data">${JSON.stringify(entry.data, null, 2).replace(/</g, '&lt;')}</div>`;
+            } catch (_) {}
+          }
+          line.innerHTML = `<span class="log-ts">[${entry.timeString}]</span><span class="log-cat">[${entry.category}]</span><span>${entry.message.replace(/</g, '&lt;')}</span>${dataHtml}`;
+          frag.appendChild(line);
+        });
+        logTerminal.appendChild(frag);
+        if (chkAutoscroll.checked) {
+          logTerminal.scrollTop = logTerminal.scrollHeight;
+        }
+      }
+
+      exportFullLogText(forAssistant = false) {
+        const now = new Date();
+        const divider = '='.repeat(80);
+        const subDivider = '-'.repeat(80);
+
+        const currentOpts = {
+          maxSize: $('#opt-size').value,
+          fps: $('#opt-fps').value,
+          bitrate: $('#opt-bitrate').value,
+          audio: $('#opt-audio').value,
+          screen: $('#opt-screen').value,
+        };
+
+        let out = '';
+        if (forAssistant) {
+          out += '### WIREFRAME ANDROID MIRROR DEBUG REPORT\n';
+          out += '```text\n';
+        }
+        out += `${divider}\n`;
+        out += `WIREFRAME ANDROID MIRROR — COMPREHENSIVE DEBUG & DIAGNOSTIC LOGS\n`;
+        out += `Generated: ${now.toISOString()} (Local: ${now.toString()})\n`;
+        out += `${divider}\n\n`;
+
+        out += `[1. CLIENT SYSTEM & BROWSER ENVIRONMENT]\n`;
+        out += `- User Agent: ${navigator.userAgent}\n`;
+        out += `- Platform: ${navigator.platform}\n`;
+        out += `- Secure Context (HTTPS/localhost): ${window.isSecureContext}\n`;
+        out += `- WebUSB API: ${Boolean(navigator.usb) ? 'Supported & Available' : 'UNAVAILABLE'}\n`;
+        out += `- WebCodecs VideoDecoder: ${typeof VideoDecoder !== 'undefined' ? 'Available' : 'UNAVAILABLE'}\n`;
+        out += `- WebCodecs Hardware Support: ${Boolean(WebCodecsVideoDecoder?.isSupported) ? 'Yes' : 'No'}\n`;
+        out += `- Viewport / Screen Dimensions: ${window.innerWidth}x${window.innerHeight} (Device Pixel Ratio: ${window.devicePixelRatio})\n`;
+        out += `- Canvas Dimensions: ${screen.width}x${screen.height}\n`;
+        out += `- Location URL: ${window.location.href}\n\n`;
+
+        out += `[2. STREAM & SCRCPY SETTINGS]\n`;
+        out += `- Max Size: ${currentOpts.maxSize === '0' ? 'Native (0)' : currentOpts.maxSize + ' px'}\n`;
+        out += `- Frame Rate: ${currentOpts.fps} FPS\n`;
+        out += `- Bitrate: ${Number(currentOpts.bitrate) / 1000000} Mbps\n`;
+        out += `- Audio Passthrough: ${currentOpts.audio}\n`;
+        out += `- Phone Screen: ${currentOpts.screen}\n`;
+        out += `- Server Binary URL: ${SERVER_URL}\n\n`;
+
+        out += `[3. CONNECTED USB DEVICE METADATA]\n`;
+        if (this.deviceInfo) {
+          out += `- Product Name: ${this.deviceInfo.productName || 'Unknown'}\n`;
+          out += `- Manufacturer: ${this.deviceInfo.manufacturerName || 'Unknown'}\n`;
+          out += `- Serial Number: ${this.deviceInfo.serialNumber || 'Unknown'}\n`;
+          out += `- Vendor ID: 0x${(this.deviceInfo.vendorId || 0).toString(16).padStart(4, '0')} (${this.deviceInfo.vendorId})\n`;
+          out += `- Product ID: 0x${(this.deviceInfo.productId || 0).toString(16).padStart(4, '0')} (${this.deviceInfo.productId})\n`;
+          out += `- USB Version: ${this.deviceInfo.usbVersionMajor}.${this.deviceInfo.usbVersionMinor}.${this.deviceInfo.usbVersionSubminor}\n`;
+          out += `- Device Class / Subclass: ${this.deviceInfo.deviceClass} / ${this.deviceInfo.deviceSubclass}\n`;
+          out += `- Opened: ${this.deviceInfo.opened}\n`;
+        } else {
+          out += `- No USB device active or recorded yet.\n`;
+        }
+        out += `\n`;
+
+        if (this.lastError) {
+          out += `[4. RECENT ERROR CAUGHT]\n`;
+          out += `- Timestamp: ${this.lastError.time}\n`;
+          out += `- Category: [${this.lastError.category}]\n`;
+          out += `- Message: ${this.lastError.message}\n`;
+          if (this.lastError.data) {
+            out += `- Details / Stack:\n${JSON.stringify(this.lastError.data, null, 2)}\n`;
+          }
+          out += `\n`;
+        }
+
+        out += `[5. SCRCPY SERVER STDOUT/STDERR PROCESS OUTPUT (Last ${this.serverLogs.length} lines)]\n`;
+        if (this.serverLogs.length === 0) {
+          out += `(No server stdout/stderr messages recorded yet)\n`;
+        } else {
+          this.serverLogs.forEach((line) => { out += `${line}\n`; });
+        }
+        out += `\n`;
+
+        out += `[6. FULL CHRONOLOGICAL EVENT & PACKET TRACE (Total: ${this.entries.length} entries)]\n`;
+        out += `${subDivider}\n`;
+        this.entries.forEach((e) => {
+          let lineStr = `[${e.time}] [${e.level.toUpperCase().padEnd(5)}] [${e.category.padEnd(8)}] ${e.message}`;
+          if (e.data) {
+            try {
+              const dStr = JSON.stringify(e.data);
+              lineStr += ` | Data: ${dStr}`;
+            } catch (_) {}
+          }
+          out += `${lineStr}\n`;
+        });
+        out += `${subDivider}\n`;
+        out += `${divider}\n`;
+        out += `END OF WIREFRAME DIAGNOSTIC REPORT\n`;
+
+        if (forAssistant) {
+          out += '```\n';
+        }
+        return out;
+      }
+
+      downloadLogFile() {
+        const text = this.exportFullLogText(false);
+        const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const ts = new Date().toISOString().replace(/[:.]/g, '-');
+        a.href = url;
+        a.download = `wireframe-scrcpy-logs-${ts}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        this.showCopyFeedback('📥 Downloaded log file successfully!');
+      }
+
+      async copyLogs(forAssistant = false) {
+        const text = this.exportFullLogText(forAssistant);
+        try {
+          await navigator.clipboard.writeText(text);
+          this.showCopyFeedback(forAssistant ? '🤖 Copied formatted logs for Assistant!' : '📋 Copied complete logs to clipboard!');
+        } catch (err) {
+          // Fallback
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          try {
+            document.execCommand('copy');
+            this.showCopyFeedback('📋 Copied logs to clipboard!');
+          } catch (_) {
+            this.showCopyFeedback('❌ Could not copy automatically. Use Download .txt instead.');
+          }
+          document.body.removeChild(ta);
+        }
+      }
+
+      showCopyFeedback(msg) {
+        copyStatus.innerHTML = `<span class="copy-success-tooltip">✓ ${msg}</span>`;
+        setTimeout(() => {
+          copyStatus.textContent = 'Export logs to share for debugging.';
+        }, 4000);
+      }
+    }
+
+    const logger = new DiagnosticLogger();
+    window.WireframeLogger = logger;
+
+    // ==========================================
+    // UI MODAL & LOG VIEWER HANDLERS
+    // ==========================================
+    function openLogsModal(filter = 'all') {
+      logger.activeFilter = filter;
+      filterButtons.forEach((btn) => btn.classList.toggle('active', btn.dataset.filter === filter));
+      logger.renderAllLogs();
+      logsModal.classList.add('open');
+      logSearch.focus();
+    }
+
+    function closeLogsModal() {
+      logsModal.classList.remove('open');
+    }
+
+    btnLogs.addEventListener('click', () => {
+      logger.info('UI', 'User opened Debug Logs modal');
+      openLogsModal('all');
+    });
+    btnCloseModal.addEventListener('click', closeLogsModal);
+    logsModal.addEventListener('click', (e) => {
+      if (e.target === logsModal) closeLogsModal();
+    });
+
+    filterButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        logger.activeFilter = btn.dataset.filter;
+        filterButtons.forEach((b) => b.classList.toggle('active', b === btn));
+        logger.renderAllLogs();
+      });
+    });
+
+    logSearch.addEventListener('input', (e) => {
+      logger.searchQuery = e.target.value.trim();
+      logger.renderAllLogs();
+    });
+
+    btnClearLogs.addEventListener('click', () => {
+      logger.clear();
+      logger.info('UI', 'User cleared log trace');
+    });
+
+    btnCopyLogs.addEventListener('click', () => logger.copyLogs(false));
+    btnCopyAssistant.addEventListener('click', () => logger.copyLogs(true));
+    btnDownloadLogs.addEventListener('click', () => logger.downloadLogFile());
+
+    // Error card buttons inside empty state
+    $('#btn-err-view-logs').addEventListener('click', () => openLogsModal('error'));
+    $('#btn-err-copy-logs').addEventListener('click', () => logger.copyLogs(true));
+    $('#btn-err-download-logs').addEventListener('click', () => logger.downloadLogFile());
+
+    // Track stream settings change
+    ['opt-size', 'opt-fps', 'opt-bitrate', 'opt-audio', 'opt-screen'].forEach((id) => {
+      const el = $(`#${id}`);
+      el.addEventListener('change', (e) => {
+        logger.info('UI', `Setting updated: ${id} = ${e.target.value}`);
+      });
+    });
+
+    // ==========================================
+    // NOTIFICATION & TOAST WITH ACTION BUTTONS
+    // ==========================================
+    let toastTimer;
+    function setStatus(label, state = '') {
+      statusLabel.textContent = label;
+      statusDot.className = `dot ${state}`;
+      logger.info('UI', `Status changed: "${label}" (${state || 'default'})`);
+    }
+
+    function notify(message, kind = '') {
+      clearTimeout(toastTimer);
+      logger.info('UI', `Toast notification: "${message}" [${kind || 'info'}]`);
+
+      let actionsHtml = '';
+      if (kind === 'error' || kind === 'warn') {
+        actionsHtml = `
+          <div class="toast-actions">
+            <button id="toast-btn-logs" class="toast-btn">🔍 View Logs</button>
+            <button id="toast-btn-copy" class="toast-btn secondary">📋 Copy Logs</button>
+            <button id="toast-btn-dl" class="toast-btn secondary">📥 Download</button>
+          </div>
+        `;
+      }
+
+      toast.innerHTML = `<div class="toast-content">${message}</div>${actionsHtml}`;
+      toast.className = `toast ${kind} show`;
+
+      const tLogs = $('#toast-btn-logs');
+      const tCopy = $('#toast-btn-copy');
+      const tDl = $('#toast-btn-dl');
+      if (tLogs) tLogs.addEventListener('click', () => openLogsModal(kind === 'error' ? 'error' : 'all'));
+      if (tCopy) tCopy.addEventListener('click', () => logger.copyLogs(true));
+      if (tDl) tDl.addEventListener('click', () => logger.downloadLogFile());
+
+      toastTimer = setTimeout(() => {
+        toast.className = `toast ${kind}`;
+      }, kind === 'error' ? 14000 : 5500);
+    }
+
+    function showErrorCard(error, detail) {
+      errorCard.classList.remove('hidden');
+      const friendly = friendlyError(error);
+      const nowStr = new Date().toLocaleTimeString();
+      errorCardTime.textContent = nowStr;
+      errorCardMsg.textContent = `${friendly}\n\nTechnical details: ${error?.message || String(error)}${detail ? `\nServer output: ${detail}` : ''}`;
+    }
+
+    function hideErrorCard() {
+      errorCard.classList.add('hidden');
+    }
+
+    function setConnected(connected) {
+      connectButton.classList.toggle('hidden', connected);
+      disconnectButton.classList.toggle('hidden', !connected);
+      emptyState.classList.toggle('hidden', connected);
+      navButtons.forEach((button) => (button.disabled = !connected));
+      if (connected) hideErrorCard();
+    }
+
+    function setConnecting(connecting) {
+      connectButton.disabled = connecting;
+      emptyConnectButton.disabled = connecting;
+      connectButton.textContent = connecting ? 'Connecting…' : 'Connect Android';
+      emptyConnectButton.textContent = connecting ? 'Connecting…' : 'Choose a device';
+    }
+
+    // ==========================================
+    // SCRCPY & ADB CONNECTIONS
+    // ==========================================
     let adb;
     let transport;
     let client;
@@ -205,37 +899,13 @@
     let currentVideoWidth = 0;
     let currentVideoHeight = 0;
     let activePointers = new Set();
-    let toastTimer;
     let statTimer;
     let lastRendered = 0;
     let serverLog = [];
 
-    function setStatus(label, state = '') {
-      statusLabel.textContent = label;
-      statusDot.className = `dot ${state}`;
-    }
-    function notify(message, kind = '') {
-      clearTimeout(toastTimer);
-      toast.textContent = message;
-      toast.className = `toast ${kind} show`;
-      toastTimer = setTimeout(() => { toast.className = `toast ${kind}`; }, kind === 'error' ? 9000 : 4500);
-    }
-    function setConnected(connected) {
-      connectButton.classList.toggle('hidden', connected);
-      disconnectButton.classList.toggle('hidden', !connected);
-      emptyState.classList.toggle('hidden', connected);
-      navButtons.forEach((button) => button.disabled = !connected);
-    }
-    function setConnecting(connecting) {
-      connectButton.disabled = connecting;
-      emptyConnectButton.disabled = connecting;
-      connectButton.textContent = connecting ? 'Connecting…' : 'Connect Android';
-      emptyConnectButton.textContent = connecting ? 'Connecting…' : 'Choose a device';
-    }
     function getOptions() {
       const audio = $('#opt-audio').value === 'on';
-      // In @yume-chan/adb-scrcpy v2.3.2, AdbScrcpyOptions2_3 takes a plain options value object directly:
-      return new AdbScrcpyOptions2_3({
+      const rawOptions = {
         maxSize: Number($('#opt-size').value),
         videoBitRate: Number($('#opt-bitrate').value),
         maxFps: Number($('#opt-fps').value),
@@ -244,151 +914,296 @@
         control: true,
         turnScreenOff: $('#opt-screen').value === 'off',
         sendDeviceMeta: true,
-      });
+      };
+      logger.info('SCRCPY', 'Configuring AdbScrcpyOptions2_3 with options', rawOptions);
+      return new AdbScrcpyOptions2_3(rawOptions);
     }
+
     function requireCompatibleBrowser() {
-      if (!window.isSecureContext) throw new Error('WebUSB needs a secure page. Serve this file from https:// or http://localhost.');
-      if (!navigator.usb) throw new Error('WebUSB is unavailable. Open this in Chrome or Edge on desktop.');
+      if (!window.isSecureContext) {
+        const err = new Error('WebUSB needs a secure page. Serve this file from https:// or http://localhost.');
+        logger.error('SYS', err.message);
+        throw err;
+      }
+      if (!navigator.usb) {
+        const err = new Error('WebUSB is unavailable. Open this in Chrome or Edge on desktop.');
+        logger.error('SYS', err.message);
+        throw err;
+      }
     }
+
     async function requestDevice() {
+      logger.info('USB', 'Requesting WebUSB device via AdbDaemonWebUsbDeviceManager.BROWSER.requestDevice()');
       const manager = AdbDaemonWebUsbDeviceManager.BROWSER;
-      return manager.requestDevice();
+      const device = await manager.requestDevice();
+      if (device?.raw) {
+        const raw = device.raw;
+        logger.deviceInfo = {
+          productName: raw.productName,
+          manufacturerName: raw.manufacturerName,
+          serialNumber: raw.serialNumber,
+          vendorId: raw.vendorId,
+          productId: raw.productId,
+          usbVersionMajor: raw.usbVersionMajor,
+          usbVersionMinor: raw.usbVersionMinor,
+          usbVersionSubminor: raw.usbVersionSubminor,
+          deviceClass: raw.deviceClass,
+          deviceSubclass: raw.deviceSubclass,
+          opened: raw.opened,
+          configurationsCount: raw.configurations?.length || 0,
+        };
+        logger.info('USB', `User selected device: "${raw.productName || 'Android Device'}" (${raw.manufacturerName || 'Vendor'})`, logger.deviceInfo);
+      } else if (device) {
+        logger.info('USB', 'Device chosen:', { serial: device.serial });
+      } else {
+        logger.warn('USB', 'No device selected in WebUSB picker dialog.');
+      }
+      return device;
     }
+
     function withTimeout(promise, milliseconds, activity) {
       let timer;
       const deadline = new Promise((_, reject) => {
-        timer = setTimeout(() => reject(new Error(`Timed out while ${activity}.`)), milliseconds);
+        timer = setTimeout(() => {
+          const err = new Error(`Timed out after ${milliseconds}ms while ${activity}.`);
+          logger.error('TIMEOUT', err.message);
+          reject(err);
+        }, milliseconds);
       });
       return Promise.race([promise, deadline]).finally(() => clearTimeout(timer));
     }
+
     function startBackgroundReaders() {
       if (client?.output) {
+        logger.info('SCRCPY', 'Subscribing to scrcpy server stdout/stderr background stream');
         void client.output.pipeTo(new WritableStream({
           write(line) {
             const text = String(line).trim();
             if (!text) return;
             serverLog.push(text);
-            serverLog = serverLog.slice(-16);
-            console.debug('[scrcpy server]', text);
+            serverLog = serverLog.slice(-24);
+            logger.server(text);
           },
         })).catch((error) => {
-          console.warn('Scrcpy server output stream ended:', error);
+          logger.warn('SCRCPY', 'Scrcpy server output stream ended', { error: error?.message || String(error) });
         });
       }
       if (client?.clipboard) {
-        void client.clipboard.pipeTo(new WritableStream({ write() {} }))
-          .catch((error) => { if (client) console.warn('Clipboard stream ended', error); });
+        void client.clipboard.pipeTo(new WritableStream({
+          write(content) {
+            logger.info('CLIPBOARD', 'Received clipboard update from device', { length: content?.length });
+          }
+        })).catch((error) => {
+          if (client) logger.warn('CLIPBOARD', 'Clipboard stream ended', { error: error?.message });
+        });
       }
     }
+
     async function handleUnexpectedDisconnect(reason) {
       if (!client) return;
-      console.warn('Connection closed:', reason);
+      logger.warn('DISCONNECT', `Unexpected disconnect: ${reason}`);
       await disconnect();
       notify(`Device disconnected: ${reason || 'Connection closed'}`, 'warn');
     }
+
     async function connect() {
       if (client) return;
+      hideErrorCard();
+      const startTime = performance.now();
       try {
+        logger.info('CONNECT', '=== Starting connection sequence ===');
         requireCompatibleBrowser();
         setConnecting(true);
         serverLog = [];
         setStatus('Choose USB device', 'busy');
         notify('Select your phone in the browser chooser. Keep the phone unlocked.', 'warn');
-        const device = await requestDevice();
-        if (!device) { setStatus('No device'); return; }
 
+        const device = await requestDevice();
+        if (!device) {
+          setStatus('No device');
+          logger.info('CONNECT', 'User cancelled device selection');
+          return;
+        }
+
+        logger.info('USB', 'Opening USB connection (device.connect())...');
+        const tUsbStart = performance.now();
         transport = await withTimeout(device.connect(), 15000, 'opening the USB connection');
+        logger.info('USB', `USB connection opened in ${(performance.now() - tUsbStart).toFixed(1)}ms`);
+
         setStatus('Approve USB debugging', 'busy');
         notify('Check your Android now and tap “Allow USB debugging”.', 'warn');
+        logger.info('ADB', 'Initiating RSA authentication handshake with device...');
+        const tAuthStart = performance.now();
         const authenticated = await authenticateWithTimeout(device, transport);
+        logger.info('ADB', `ADB RSA authentication succeeded in ${(performance.now() - tAuthStart).toFixed(1)}ms`);
         adb = new Adb(authenticated);
 
         setStatus('Uploading mirror service', 'busy');
+        logger.info('SERVER', `Fetching scrcpy server jar from ${SERVER_URL}...`);
+        const tFetchStart = performance.now();
         const response = await withTimeout(fetch(SERVER_URL), 15000, 'downloading the scrcpy server');
-        if (!response.ok || !response.body) throw new Error(`Could not download the scrcpy server (${response.status}). Confirm ${SERVER_URL} is in your repository root.`);
+        if (!response.ok || !response.body) {
+          const err = new Error(`Could not download scrcpy server (${response.status} ${response.statusText}) from ${SERVER_URL}`);
+          logger.error('SERVER', err.message, { status: response.status, url: SERVER_URL });
+          throw err;
+        }
+        const serverLength = response.headers.get('content-length');
+        logger.info('SERVER', `Scrcpy server downloaded in ${(performance.now() - tFetchStart).toFixed(1)}ms (size: ${serverLength || 'unknown'} bytes). Pushing to device /data/local/tmp/scrcpy-server.jar...`);
+
+        const tPushStart = performance.now();
         await withTimeout(AdbScrcpyClient.pushServer(adb, response.body), 30000, 'uploading the scrcpy server');
+        logger.info('SERVER', `Server jar pushed successfully in ${(performance.now() - tPushStart).toFixed(1)}ms`);
 
         setStatus('Starting screen mirror', 'busy');
-        if ($('#opt-audio').value === 'on') startAudio();
-        client = await withTimeout(AdbScrcpyClient.start(adb, DefaultServerPath, getOptions()), 30000, 'starting scrcpy on the phone');
+        if ($('#opt-audio').value === 'on') {
+          logger.info('AUDIO', 'Audio option is ON: Initializing AudioContext');
+          startAudio();
+        }
+
+        const options = getOptions();
+        logger.info('SCRCPY', 'Starting scrcpy client on device...', { DefaultServerPath });
+        const tStartClient = performance.now();
+        client = await withTimeout(AdbScrcpyClient.start(adb, DefaultServerPath, options), 30000, 'starting scrcpy on the phone');
+        logger.info('SCRCPY', `Scrcpy process started on phone in ${(performance.now() - tStartClient).toFixed(1)}ms`);
+
         startBackgroundReaders();
+
+        logger.info('STREAM', 'Attaching video and audio streams...');
         await withTimeout(attachStreams(), 15000, 'opening the video and audio streams');
+
         setConnected(true);
         setStatus('Connected', 'connected');
-        notify('Connected. Click the phone screen to send keyboard/touch input.');
+        notify('Connected! Click the phone screen to send keyboard/touch input.');
         startStats();
+        logger.info('CONNECT', `=== Mirror session successfully established in ${(performance.now() - startTime).toFixed(1)}ms ===`);
       } catch (error) {
+        logger.error('CONNECT', `Connection failed: ${error?.message || String(error)}`, {
+          errorObject: error,
+          stack: error?.stack,
+          serverOutput: error?.output || serverLog,
+        });
         await cleanup();
         const message = friendlyError(error);
         const detail = serverErrorDetail(error);
         setStatus('Connection failed');
         notify(detail ? `${message} Server output: ${detail}` : message, 'error');
-        console.error('Wireframe connection error:', error, error?.output, serverLog);
+        showErrorCard(error, detail);
       } finally {
         setConnecting(false);
       }
     }
+
     async function authenticateWithTimeout(device, connection) {
       const authenticate = AdbDaemonTransport.authenticate({ serial: device.serial, connection, credentialStore: credentials });
       let timeout;
-      const deadline = new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error('Timed out waiting for USB debugging authorization.')), 45000); });
-      try { return await Promise.race([authenticate, deadline]); }
-      finally { clearTimeout(timeout); }
+      const deadline = new Promise((_, reject) => {
+        timeout = setTimeout(() => {
+          const err = new Error('Timed out waiting for USB debugging authorization on device screen.');
+          logger.error('ADB', err.message);
+          reject(err);
+        }, 45000);
+      });
+      try {
+        return await Promise.race([authenticate, deadline]);
+      } finally {
+        clearTimeout(timeout);
+      }
     }
+
     async function attachStreams() {
-      if (!client.videoStream) throw new Error('The phone did not provide a video stream.');
+      if (!client.videoStream) {
+        const err = new Error('The phone did not provide a video stream.');
+        logger.error('VIDEO', err.message);
+        throw err;
+      }
+      logger.info('VIDEO', 'Awaiting videoStream promise from scrcpy client...');
       const video = await client.videoStream;
       currentVideoWidth = video.width || video.metadata?.width || 720;
       currentVideoHeight = video.height || video.metadata?.height || 1280;
       screen.width = currentVideoWidth;
       screen.height = currentVideoHeight;
 
+      logger.info('VIDEO', 'VideoStream metadata received', {
+        codec: video.metadata?.codec,
+        width: currentVideoWidth,
+        height: currentVideoHeight,
+        hasWebCodecsSupport: WebCodecsVideoDecoder.isSupported,
+      });
+
       if (WebCodecsVideoDecoder.isSupported) {
         let renderer;
         try {
           renderer = new WebGLVideoFrameRenderer(screen);
-        } catch (_) {
+          logger.info('DECODER', 'Created WebGLVideoFrameRenderer for WebCodecs');
+        } catch (rErr) {
+          logger.warn('DECODER', 'WebGLVideoFrameRenderer failed, falling back to BitmapVideoFrameRenderer', { error: rErr.message });
           renderer = new BitmapVideoFrameRenderer(screen);
         }
         decoder = new WebCodecsVideoDecoder({
           codec: video.metadata?.codec,
           renderer,
         });
+        logger.info('DECODER', 'WebCodecsVideoDecoder initialized successfully');
       } else {
+        logger.warn('DECODER', 'WebCodecs not supported in this browser, falling back to TinyH264Decoder (software baseline)');
         decoder = new TinyH264Decoder({ canvas: screen });
       }
 
       decoder.sizeChanged(({ width, height }) => {
+        logger.info('DECODER', `Video dimensions changed: ${width}x${height}`);
         currentVideoWidth = width;
         currentVideoHeight = height;
         screen.width = width;
         screen.height = height;
       });
-      void video.stream.pipeTo(decoder.writable).catch((error) => {
+
+      void video.stream.pipeTo(decoder.writable).then(() => {
+        logger.info('VIDEO', 'Video stream completed cleanly');
+      }).catch((error) => {
         if (client) {
+          logger.error('VIDEO', `Video stream pipeTo error: ${error?.message || String(error)}`, { stack: error?.stack });
           notify(`Video stream ended: ${error.message || error}`, 'error');
           handleUnexpectedDisconnect('Video stream ended');
         }
       });
 
-      if (!client.audioStream) { statAudio.textContent = 'Audio off'; return; }
+      if (!client.audioStream) {
+        statAudio.textContent = 'Audio off';
+        logger.info('AUDIO', 'Audio stream not requested or not supported by client');
+        return;
+      }
+      logger.info('AUDIO', 'Awaiting audioStream promise...');
       const audio = await client.audioStream;
       if (audio.type !== 'success') {
         statAudio.textContent = 'Audio unavailable';
         const reason = audio?.error?.message || audio?.message;
+        logger.warn('AUDIO', `Audio forwarding unavailable: ${reason || 'unknown reason'}`, audio);
         notify(`Mirror connected, but audio cannot be forwarded${reason ? `: ${reason}` : ' on this device'}.`, 'warn');
-        console.warn('Scrcpy audio forwarding unavailable', audio);
         return;
       }
       statAudio.textContent = 'Audio on';
-      void audio.stream.pipeTo(new WritableStream({ write: (packet) => playPcm(packet.data) }))
-        .catch((error) => { if (client) { statAudio.textContent = 'Audio ended'; console.warn('Audio stream ended', error); } });
+      logger.info('AUDIO', 'Audio stream connected. Piping PCM data...');
+      void audio.stream.pipeTo(new WritableStream({
+        write: (packet) => playPcm(packet.data)
+      })).catch((error) => {
+        if (client) {
+          statAudio.textContent = 'Audio ended';
+          logger.warn('AUDIO', 'Audio stream ended', { error: error?.message });
+        }
+      });
     }
+
     function startAudio() {
-      if (!audioContext) audioContext = new AudioContext({ latencyHint: 'interactive', sampleRate: 48000 });
-      void audioContext.resume().catch((error) => console.warn('Browser audio output could not start', error));
+      if (!audioContext) {
+        audioContext = new AudioContext({ latencyHint: 'interactive', sampleRate: 48000 });
+        logger.info('AUDIO', `AudioContext created (sampleRate: ${audioContext.sampleRate}, state: ${audioContext.state})`);
+      }
+      void audioContext.resume().catch((error) => {
+        logger.warn('AUDIO', 'AudioContext resume failed', { error: error?.message });
+      });
       nextAudioTime = audioContext.currentTime + 0.08;
     }
+
     function playPcm(bytes) {
       if (!audioContext || !bytes?.byteLength) return;
       const samples = Math.floor(bytes.byteLength / 4);
@@ -401,15 +1216,22 @@
         right[i] = view.getInt16(offset + 2, true) / 32768;
       }
       const source = audioContext.createBufferSource();
-      source.buffer = buffer; source.connect(audioContext.destination);
+      source.buffer = buffer;
+      source.connect(audioContext.destination);
       const now = audioContext.currentTime;
       if (nextAudioTime < now - 0.1 || nextAudioTime > now + 0.35) nextAudioTime = now + 0.035;
       source.start(nextAudioTime);
       nextAudioTime += buffer.duration;
     }
+
     function videoSize() {
-      return { width: currentVideoWidth || client?.videoWidth || screen.width, height: currentVideoHeight || client?.videoHeight || screen.height };
+      return {
+        width: currentVideoWidth || client?.videoWidth || screen.width,
+        height: currentVideoHeight || client?.videoHeight || screen.height,
+      };
     }
+
+    let lastTouchLog = 0;
     function eventToTouch(event) {
       const { width, height } = videoSize();
       if (!client?.controller || !width || !height) return;
@@ -425,6 +1247,21 @@
       else action = AndroidMotionEventAction.Move;
 
       const buttons = event.buttons || 0;
+      const now = performance.now();
+
+      // Sample touch logs to prevent log flood on fast dragging
+      if (action !== AndroidMotionEventAction.Move || now - lastTouchLog > 250) {
+        logger.touch(`Touch ${event.type}`, {
+          action,
+          pointerX: Math.round(x),
+          pointerY: Math.round(y),
+          videoWidth: width,
+          videoHeight: height,
+          buttons,
+        });
+        lastTouchLog = now;
+      }
+
       void client.controller.injectTouch({
         action,
         pointerId: ScrcpyPointerId.Finger,
@@ -435,13 +1272,13 @@
         pressure: buttons ? 1 : 0,
         buttons,
       }).catch((err) => {
+        logger.warn('TOUCH', `injectTouch exception: ${err?.message || String(err)}`, { action, x, y });
         if (err?.message?.includes('closed')) {
           handleUnexpectedDisconnect('Socket closed by device');
-        } else {
-          console.warn('Touch injection warning:', err);
         }
       });
     }
+
     function onPointer(event) {
       if (!client) return;
       event.preventDefault();
@@ -455,6 +1292,7 @@
         activePointers.delete(event.pointerId);
       }
     }
+
     function androidKeyCode(event) {
       const codes = { Escape:4, Home:3, End:187, Backspace:67, Enter:66, Tab:61, ' ':62, Delete:112, ArrowUp:19, ArrowDown:20, ArrowLeft:21, ArrowRight:22, PageUp:92, PageDown:93, F1:131, F2:132, F3:133, F4:134, F5:135, F6:136, F7:137, F8:138, F9:139, F10:140, F11:141, F12:142 };
       if (codes[event.key] !== undefined) return codes[event.key];
@@ -462,51 +1300,63 @@
       if (/^Digit[0-9]$/.test(event.code)) return 7 + Number(event.code[5]);
       return undefined;
     }
+
     function metaState(event) {
       return (event.shiftKey ? AndroidKeyEventMeta.Shift : 0) | (event.altKey ? AndroidKeyEventMeta.Alt : 0) | (event.ctrlKey ? AndroidKeyEventMeta.Ctrl : 0) | (event.metaKey ? AndroidKeyEventMeta.Meta : 0);
     }
+
     function onKey(event) {
       if (!client?.controller || document.activeElement !== screen) return;
       const code = androidKeyCode(event);
       if (code === undefined) {
         if (event.type === 'keydown' && event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
           event.preventDefault();
+          logger.key(`injectText: "${event.key}"`);
           void client.controller.injectText(event.key).catch((err) => {
+            logger.warn('KEY', `injectText error: ${err?.message}`);
             if (err?.message?.includes('closed')) handleUnexpectedDisconnect('Socket closed');
           });
         }
         return;
       }
       event.preventDefault();
+      logger.key(`injectKeyCode: ${code} (${event.key}, ${event.type})`);
       void client.controller.injectKeyCode({
         action: event.type === 'keydown' ? AndroidKeyEventAction.Down : AndroidKeyEventAction.Up,
         keyCode: code,
         repeat: event.repeat ? 1 : 0,
-        metaState: metaState(event)
+        metaState: metaState(event),
       }).catch((err) => {
+        logger.warn('KEY', `injectKeyCode error: ${err?.message}`);
         if (err?.message?.includes('closed')) handleUnexpectedDisconnect('Socket closed');
       });
     }
+
     async function sendKey(keyCode) {
       if (!client?.controller) return;
+      logger.key(`sendKey (Down+Up): ${keyCode}`);
       try {
         await client.controller.injectKeyCode({ action: AndroidKeyEventAction.Down, keyCode, repeat: 0, metaState: AndroidKeyEventMeta.None });
         await client.controller.injectKeyCode({ action: AndroidKeyEventAction.Up, keyCode, repeat: 0, metaState: AndroidKeyEventMeta.None });
       } catch (error) {
+        logger.warn('KEY', `sendKey error: ${error?.message}`);
         if (error?.message?.includes('closed')) handleUnexpectedDisconnect('Socket closed');
-        else console.warn(error);
       }
     }
+
     function startStats() {
       clearInterval(statTimer);
       lastRendered = decoder?.framesRendered || 0;
       statTimer = setInterval(() => {
         const total = decoder?.framesRendered || 0;
-        statFps.textContent = String(Math.max(0, total - lastRendered));
+        const fps = Math.max(0, total - lastRendered);
+        statFps.textContent = String(fps);
         lastRendered = total;
       }, 1000);
     }
+
     async function disconnect() {
+      logger.info('DISCONNECT', 'User requested disconnect or session ended');
       await cleanup();
       setConnected(false);
       setStatus('No device');
@@ -514,6 +1364,7 @@
       statAudio.textContent = 'Audio —';
       notify('Disconnected.');
     }
+
     async function cleanup() {
       clearInterval(statTimer);
       activePointers.clear();
@@ -528,7 +1379,9 @@
       try { await audioContext?.close(); } catch (_) {}
       audioContext = undefined;
       nextAudioTime = 0;
+      logger.info('CLEANUP', 'All streaming handles, decoders, and audio context disposed cleanly');
     }
+
     function friendlyError(error) {
       const raw = `${error?.message || String(error)} ${serverErrorDetail(error)}`;
       if (/Invalid option value/i.test(raw)) return 'The browser sent an invalid scrcpy option. Check your option configuration and reconnect.';
@@ -539,6 +1392,7 @@
       if (/device.*not found|cancel/i.test(raw)) return 'No USB device was selected.';
       return `Connection failed: ${raw}`;
     }
+
     function serverErrorDetail(error) {
       const output = Array.isArray(error?.output) ? error.output : [];
       const details = [...output, ...serverLog].map(String).map((line) => line.trim()).filter(Boolean);
@@ -549,6 +1403,7 @@
     emptyConnectButton.addEventListener('click', connect);
     disconnectButton.addEventListener('click', disconnect);
     $('#btn-fullscreen').addEventListener('click', () => {
+      logger.info('UI', 'Toggling fullscreen');
       if (document.fullscreenElement) document.exitFullscreen();
       else stage.requestFullscreen().catch((error) => notify(`Fullscreen unavailable: ${error.message}`, 'error'));
     });
@@ -556,9 +1411,15 @@
       $('#btn-fullscreen').textContent = document.fullscreenElement ? 'Exit fullscreen' : 'Fullscreen';
     });
     navButtons.forEach((button) => button.addEventListener('click', () => sendKey(Number(button.dataset.key))));
-    ['pointerdown','pointermove','pointerup','pointercancel'].forEach((name) => screen.addEventListener(name, onPointer));
+    ['pointerdown', 'pointermove', 'pointerup', 'pointercancel'].forEach((name) => screen.addEventListener(name, onPointer));
     screen.addEventListener('contextmenu', (event) => event.preventDefault());
-    window.addEventListener('keydown', onKey);
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && logsModal.classList.contains('open')) {
+        closeLogsModal();
+        return;
+      }
+      onKey(e);
+    });
     window.addEventListener('keyup', onKey);
     window.addEventListener('beforeunload', () => { void cleanup(); });
     if (!window.isSecureContext || !navigator.usb) notify('Open from localhost or HTTPS in Chrome/Edge to enable WebUSB.', 'warn');
