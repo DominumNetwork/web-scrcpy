@@ -306,6 +306,7 @@
       BitmapVideoFrameRenderer,
       Consumable,
       PushReadableStream,
+      EMBEDDED_SCRCPY_SERVERS,
     } from './tango-bundle.js';
 
     window.__wireframeModuleReady = true;
@@ -984,6 +985,17 @@
     }
 
     async function fetchServerBinary(serverUrl, version) {
+      if (EMBEDDED_SCRCPY_SERVERS && EMBEDDED_SCRCPY_SERVERS[version]) {
+        const data = EMBEDDED_SCRCPY_SERVERS[version];
+        logger.info('SERVER', `Using pre-bundled embedded scrcpy-server ${version} (${data.byteLength} bytes)`);
+        return {
+          data,
+          resolvedUrl: `embedded://scrcpy-server-${version}`,
+          length: data.byteLength,
+        };
+      }
+
+      const ghUrl = `https://github.com/Genymobile/scrcpy/releases/download/${version}/scrcpy-server-${version}`;
       const candidates = [
         serverUrl,
         `./${serverUrl.replace(/^\.\//, '')}`,
@@ -994,7 +1006,9 @@
         `/scrcpy-server-${version}`,
         `./public/scrcpy-server-${version}`,
         `/public/scrcpy-server-${version}`,
-        `https://github.com/Genymobile/scrcpy/releases/download/${version}/scrcpy-server-${version}`,
+        ghUrl,
+        `https://corsproxy.io/?url=${encodeURIComponent(ghUrl)}`,
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(ghUrl)}`,
       ];
 
       let lastError;
@@ -1017,7 +1031,7 @@
           lastError = e;
         }
       }
-      throw new Error(`Could not fetch scrcpy-server binary (${version}) from local files or GitHub: ${lastError?.message || 'Not found'}`);
+      throw new Error(`Could not fetch scrcpy-server binary (${version}) from embedded bundle, local files, or GitHub: ${lastError?.message || 'Not found'}`);
     }
 
     function requireCompatibleBrowser() {
