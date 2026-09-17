@@ -169,6 +169,11 @@
       ScrcpyPointerId,
       ScrcpyAudioCodec
     } from 'https://esm.sh/@yume-chan/scrcpy@2.3.0?bundle';
+    import {
+      WebCodecsVideoDecoder,
+      WebGLVideoFrameRenderer,
+      BitmapVideoFrameRenderer
+    } from 'https://esm.sh/@yume-chan/scrcpy-decoder-webcodecs@2.1.0?bundle';
     import { TinyH264Decoder } from 'https://esm.sh/@yume-chan/scrcpy-decoder-tinyh264@2.1.0?bundle';
 
     window.__wireframeModuleReady = true;
@@ -267,10 +272,7 @@
             console.debug('[scrcpy server]', text);
           },
         })).catch((error) => {
-          if (client) {
-            console.warn('Scrcpy server output ended', error);
-            handleUnexpectedDisconnect('Server process terminated.');
-          }
+          console.warn('Scrcpy server output stream ended:', error);
         });
       }
       if (client?.clipboard) {
@@ -338,7 +340,24 @@
       const video = await client.videoStream;
       currentVideoWidth = video.width || video.metadata?.width || 720;
       currentVideoHeight = video.height || video.metadata?.height || 1280;
-      decoder = new TinyH264Decoder({ canvas: screen });
+      screen.width = currentVideoWidth;
+      screen.height = currentVideoHeight;
+
+      if (WebCodecsVideoDecoder.isSupported) {
+        let renderer;
+        try {
+          renderer = new WebGLVideoFrameRenderer(screen);
+        } catch (_) {
+          renderer = new BitmapVideoFrameRenderer(screen);
+        }
+        decoder = new WebCodecsVideoDecoder({
+          codec: video.metadata?.codec,
+          renderer,
+        });
+      } else {
+        decoder = new TinyH264Decoder({ canvas: screen });
+      }
+
       decoder.sizeChanged(({ width, height }) => {
         currentVideoWidth = width;
         currentVideoHeight = height;
@@ -405,11 +424,16 @@
       else if (event.type === 'pointerup' || event.type === 'pointercancel') action = AndroidMotionEventAction.Up;
       else action = AndroidMotionEventAction.Move;
 
-      const buttonMap = [AndroidMotionEventButton.Primary, AndroidMotionEventButton.Tertiary, AndroidMotionEventButton.Secondary, AndroidMotionEventButton.Back, AndroidMotionEventButton.Forward];
       const buttons = event.buttons || 0;
       void client.controller.injectTouch({
-        action, pointerId: BigInt(event.pointerId), pointerX: Math.round(x), pointerY: Math.round(y), videoWidth: width, videoHeight: height,
-        pressure: buttons ? 1 : 0, actionButton: buttonMap[event.button] ?? 0, buttons,
+        action,
+        pointerId: ScrcpyPointerId.Finger,
+        pointerX: Math.round(x),
+        pointerY: Math.round(y),
+        videoWidth: width,
+        videoHeight: height,
+        pressure: buttons ? 1 : 0,
+        buttons,
       }).catch((err) => {
         if (err?.message?.includes('closed')) {
           handleUnexpectedDisconnect('Socket closed by device');
