@@ -52,20 +52,36 @@
     .shortcuts { display:grid; gap:2px; }
     .shortcut { display:flex; align-items:center; justify-content:space-between; padding:7px 6px; color:#a8b7cb; border-bottom:1px solid #1b2b42; }
     kbd { min-width:36px; padding:2px 5px; border:1px solid #3b5070; border-radius:4px; color:#d9e7fb; background:#15243a; font:11px ui-monospace, SFMono-Regular, Consolas, monospace; text-align:center; }
-    .stage { position:relative; min-width:0; min-height:0; display:grid; place-items:center; overflow:hidden; background:radial-gradient(circle at 50% 44%,#1c2c47 0,#0a1322 45%,#070e19 100%); }
+    .stage { position:relative; min-width:0; min-height:0; display:flex; align-items:center; justify-content:center; overflow:hidden; background:radial-gradient(circle at 50% 44%,#1c2c47 0,#0a1322 45%,#070e19 100%); padding:12px; }
     .stage::before { content:""; position:absolute; inset:0; opacity:.25; pointer-events:none; background-image:linear-gradient(#ffffff08 1px,transparent 1px),linear-gradient(90deg,#ffffff08 1px,transparent 1px); background-size:26px 26px; mask-image:radial-gradient(ellipse,#000 0,transparent 74%); }
-    #screen-shell { position:relative; z-index:1; display:grid; place-items:center; max-width:100%; max-height:100%; }
-    #screen { display:block; max-width:calc(100vw - 330px); max-height:calc(100vh - 70px); min-width:190px; min-height:338px; background:#020508; border:1px solid #344a69; border-radius:13px; box-shadow:var(--shadow),0 0 0 6px #050b15; touch-action:none; outline:none; }
+    #screen-shell { position:relative; z-index:1; display:flex; align-items:center; justify-content:center; width:100%; height:100%; max-width:100%; max-height:100%; pointer-events:none; }
+    #screen { display:block; pointer-events:auto; max-width:calc(100% - 12px); max-height:calc(100% - 12px); object-fit:contain; background:#020508; border:1px solid #344a69; border-radius:13px; box-shadow:var(--shadow),0 0 0 6px #050b15; touch-action:none; outline:none; transition:transform .18s cubic-bezier(.16,1,.3,1), width .12s ease, height .12s ease; transform-origin:center center; }
     .empty-state { position:absolute; z-index:3; display:grid; justify-items:center; max-width:450px; padding:28px; text-align:center; background:#101c2fcc; border:1px solid #2b405e; border-radius:16px; box-shadow:var(--shadow); backdrop-filter:blur(16px); }
     .empty-icon { display:grid; place-items:center; width:49px; height:49px; margin-bottom:11px; border-radius:14px; color:#91bdff; background:#193253; font-size:23px; }
     .empty-state h1 { margin:0; font-size:20px; }
     .empty-state p { margin:9px 0 15px; color:#a5b5ca; }
     .requirements { width:100%; padding:9px 11px; color:#aab9ce; background:#0b1625; border-radius:8px; font-size:11px; text-align:left; }
     .requirements code { color:#b8d3ff; }
-    .nav { position:absolute; z-index:4; bottom:17px; left:50%; display:flex; gap:5px; padding:6px; border:1px solid #3a4e6c; border-radius:13px; background:#0b1628d9; box-shadow:0 10px 36px #02071385; backdrop-filter:blur(12px); transform:translateX(-50%); }
-    .nav button { width:39px; height:34px; border-radius:8px; color:#d6e5fb; background:transparent; font-size:16px; }
-    .nav button:hover { background:#233b5c; }
-    .nav button[disabled] { color:#64738a; cursor:default; }
+    
+    /* Popout Quick Controls Sidebar / Dock */
+    .quick-dock { position:absolute; z-index:10; right:10px; top:50%; transform:translateY(-50%); display:flex; align-items:center; transition:transform .22s cubic-bezier(.16,1,.3,1), opacity .22s ease; user-select:none; }
+    .quick-dock.collapsed { transform:translateY(-50%) translateX(calc(100% - 22px)); }
+    .dock-toggle { width:22px; height:52px; padding:0; display:flex; align-items:center; justify-content:center; background:#112037dd; border:1px solid #2d456a; border-right:none; border-radius:8px 0 0 8px; color:#92abce; cursor:pointer; font-size:14px; backdrop-filter:blur(12px); box-shadow:-4px 0 16px #03081455; transition:background .15s ease, color .15s ease; }
+    .dock-toggle:hover { background:#1c3459; color:#fff; }
+    .quick-dock.collapsed .dock-toggle { border-right:1px solid #2d456a; border-radius:8px; background:#142742ee; color:#64a8ff; box-shadow:0 4px 18px #01040bee; }
+    .quick-dock.collapsed #dock-toggle-icon { transform:rotate(180deg); }
+    #dock-toggle-icon { transition:transform .2s ease; display:inline-block; font-weight:bold; }
+    .dock-content { display:flex; flex-direction:column; gap:3px; padding:8px 6px; background:#0c182cee; border:1px solid #283e5f; border-radius:11px; box-shadow:0 14px 40px #020713bb; backdrop-filter:blur(16px); }
+    .dock-label { font-size:8.5px; font-weight:750; letter-spacing:.08em; color:#677e9e; text-align:center; padding:2px 0 0; }
+    .dock-divider { height:1px; background:#1c2d46; margin:3px 2px; }
+    .dock-btn { display:flex; align-items:center; justify-content:flex-start; gap:8px; min-width:88px; height:31px; padding:4px 9px; border-radius:6px; background:transparent; border:1px solid transparent; color:#d6e5fb; font-size:11.5px; font-weight:550; cursor:pointer; transition:background .12s ease, border-color .12s ease, color .12s ease; text-align:left; }
+    .dock-btn:hover:not([disabled]) { background:#1a2f50; border-color:#2c4b77; color:#fff; }
+    .dock-btn:active:not([disabled]) { background:#254370; }
+    .dock-btn[disabled] { color:#4e5e74; cursor:default; opacity:.55; }
+    .dock-icon { font-size:14px; width:16px; text-align:center; color:#79a8e8; display:inline-block; }
+    .dock-btn[disabled] .dock-icon { color:#4e5e74; }
+    .dock-text { white-space:nowrap; }
+
     .stats { position:absolute; z-index:4; top:15px; right:18px; display:flex; gap:7px; }
     .stat { padding:5px 8px; color:#afc0d7; background:#0a1424c9; border:1px solid #2a3e5b; border-radius:7px; font-size:11px; backdrop-filter:blur(8px); }
     .stat b { color:#f0f6ff; font-variant-numeric:tabular-nums; }
@@ -131,7 +147,7 @@
     .hidden { display:none !important; }
     @keyframes pulse { 50% { opacity:.45; transform:scale(.82); } }
     @media (max-width:850px) { .layout { grid-template-columns:1fr; } aside { display:none; } #screen { max-width:calc(100vw - 35px); max-height:calc(100vh - 80px); } .connection { display:none; } }
-    @media (max-width:560px) { .topbar { padding:10px; gap:8px; } .brand { font-size:12px; } .brand-mark { width:25px; height:25px; } .button { padding:7px 9px; } #btn-fullscreen { display:none; } .empty-state { max-width:calc(100% - 32px); padding:22px 17px; } .stats { right:10px; top:10px; } .nav { bottom:9px; } }
+    @media (max-width:560px) { .topbar { padding:10px; gap:8px; } .brand { font-size:12px; } .brand-mark { width:25px; height:25px; } .button { padding:7px 9px; } #btn-fullscreen { display:none; } .empty-state { max-width:calc(100% - 32px); padding:22px 17px; } .stats { right:10px; top:10px; } .quick-dock { right:7px; } .dock-btn { min-width:82px; } }
   </style>
 </head>
 <body>
@@ -187,7 +203,7 @@
         <div class="shortcuts"><div class="shortcut"><span>Back</span><kbd>Esc</kbd></div><div class="shortcut"><span>Home</span><kbd>Home</kbd></div><div class="shortcut"><span>Recent apps</span><kbd>End</kbd></div><div class="shortcut"><span>Focus phone</span><kbd>Click</kbd></div></div>
       </aside>
       <main id="stage" class="stage">
-        <div class="stats"><span class="stat"><b id="stat-fps">—</b> FPS</span><span class="stat" id="stat-audio">Audio —</span></div>
+        <div class="stats"><span class="stat"><b id="stat-fps">—</b> FPS</span><span class="stat" id="stat-orientation">Orientation —</span><span class="stat" id="stat-audio">Audio —</span></div>
         <div id="screen-shell"><canvas id="screen" width="720" height="1280" tabindex="0" aria-label="Connected Android screen"></canvas></div>
         <section id="empty-state" class="empty-state">
           <div class="empty-icon">⌁</div><h1>Ready to mirror your Android</h1>
@@ -204,9 +220,26 @@
           </div>
           <div class="requirements" style="margin-top:14px;">Use Chrome or Edge over <code>https://</code> or <code>http://localhost</code>. Close Android Studio, adb, or native scrcpy first — they can hold the USB interface.</div>
         </section>
-        <nav class="nav" aria-label="Android controls">
-          <button data-key="4" title="Back" disabled>‹</button><button data-key="3" title="Home" disabled>○</button><button data-key="187" title="Recent apps" disabled>□</button><button data-key="26" title="Power" disabled>⏻</button><button data-key="24" title="Volume up" disabled>＋</button><button data-key="25" title="Volume down" disabled>−</button>
-        </nav>
+        <!-- Popout Quick Controls Sidebar -->
+        <aside id="quick-controls" class="quick-dock" aria-label="Android quick controls">
+          <button id="btn-dock-toggle" class="dock-toggle" title="Collapse / Expand Controls">
+            <span id="dock-toggle-icon">›</span>
+          </button>
+          <div class="dock-content">
+            <div class="dock-label">NAV</div>
+            <button class="dock-btn" data-key="4" title="Back (Esc)" disabled><span class="dock-icon">‹</span><span class="dock-text">Back</span></button>
+            <button class="dock-btn" data-key="3" title="Home (Home)" disabled><span class="dock-icon">○</span><span class="dock-text">Home</span></button>
+            <button class="dock-btn" data-key="187" title="Recent Apps (End)" disabled><span class="dock-icon">□</span><span class="dock-text">Apps</span></button>
+            <div class="dock-divider"></div>
+            <div class="dock-label">DISPLAY</div>
+            <button id="btn-rotate-screen" class="dock-btn" title="Show the current native Android stream orientation" disabled><span class="dock-icon">↻</span><span class="dock-text" id="rotate-label">Auto</span></button>
+            <div class="dock-divider"></div>
+            <div class="dock-label">SYSTEM</div>
+            <button class="dock-btn" data-key="26" title="Power / Screen Wake" disabled><span class="dock-icon">⏻</span><span class="dock-text">Power</span></button>
+            <button class="dock-btn" data-key="24" title="Volume Up" disabled><span class="dock-icon">＋</span><span class="dock-text">Vol +</span></button>
+            <button class="dock-btn" data-key="25" title="Volume Down" disabled><span class="dock-icon">−</span><span class="dock-text">Vol −</span></button>
+          </div>
+        </aside>
         <div id="toast" class="toast" role="status" aria-live="polite"></div>
       </main>
     </div>
@@ -325,8 +358,13 @@
     const statusLabel = $('#status-label');
     const toast = $('#toast');
     const statFps = $('#stat-fps');
+    const statOrientation = $('#stat-orientation');
     const statAudio = $('#stat-audio');
-    const navButtons = [...document.querySelectorAll('.nav button')];
+    const quickDock = $('#quick-controls');
+    const btnDockToggle = $('#btn-dock-toggle');
+    const btnRotateScreen = $('#btn-rotate-screen');
+    const rotateLabel = $('#rotate-label');
+    const navButtons = [...document.querySelectorAll('.dock-btn[data-key]')];
     const credentials = new AdbWebCredentialStore();
 
     // Error and Modal UI Elements
@@ -896,8 +934,10 @@
       connectButton.classList.toggle('hidden', connected);
       disconnectButton.classList.toggle('hidden', !connected);
       emptyState.classList.toggle('hidden', connected);
-      navButtons.forEach((button) => (button.disabled = !connected));
+      const dockButtons = [...document.querySelectorAll('.dock-btn')];
+      dockButtons.forEach((button) => (button.disabled = !connected));
       if (connected) hideErrorCard();
+      updateScreenLayout();
     }
 
     function setConnecting(connecting) {
@@ -909,6 +949,8 @@
 
     // ==========================================
     // SCRCPY & ADB CONNECTIONS
+    // Orientation follows the native scrcpy video stream. FPS is measured from
+    // decoder output with encoded-frame fallback so both indicators are live.
     // ==========================================
     let adb;
     let transport;
@@ -918,10 +960,67 @@
     let nextAudioTime = 0;
     let currentVideoWidth = 0;
     let currentVideoHeight = 0;
+    let currentRotation = 0; // 0, 90, 180, 270
+    let framesDrawn = 0;
+    let encodedFrames = 0;
+    let lastVideoPacketAt = 0;
     let activePointers = new Set();
+    let lastScrollLog = 0;
     let statTimer;
-    let lastRendered = 0;
     let serverLog = [];
+
+    function updateScreenLayout(w = currentVideoWidth, h = currentVideoHeight) {
+      if (!w || !h) return;
+
+      currentVideoWidth = Number(w);
+      currentVideoHeight = Number(h);
+
+      // The decoder owns the canvas' backing resolution. Do not CSS-rotate it:
+      // scrcpy changes the encoded stream dimensions when Android rotates.
+      screen.width = currentVideoWidth;
+      screen.height = currentVideoHeight;
+      screen.style.transform = 'none';
+
+      const availW = Math.max(160, stage.clientWidth - 132);
+      const availH = Math.max(160, stage.clientHeight - 24);
+      const scale = Math.min(
+        availW / currentVideoWidth,
+        availH / currentVideoHeight,
+        1
+      );
+
+      screen.style.width = `${Math.max(1, Math.round(currentVideoWidth * scale))}px`;
+      screen.style.height = `${Math.max(1, Math.round(currentVideoHeight * scale))}px`;
+
+      const landscape = currentVideoWidth > currentVideoHeight;
+      const orientation = landscape ? 'Landscape' :
+        currentVideoWidth < currentVideoHeight ? 'Portrait' : 'Square';
+
+      if (rotateLabel) rotateLabel.textContent = orientation;
+      if (statOrientation) statOrientation.textContent = orientation;
+      logger.info('DISPLAY', `Native stream orientation: ${orientation} (${currentVideoWidth}x${currentVideoHeight})`);
+    }
+
+    function handleVideoSizeChange(width, height, source = 'video') {
+      const w = Number(width);
+      const h = Number(height);
+      if (!w || !h) return;
+
+      const changed = w !== currentVideoWidth || h !== currentVideoHeight;
+      currentVideoWidth = w;
+      currentVideoHeight = h;
+
+      // Android/scrcpy has already rotated the stream. Keep our display at 0°
+      // and simply resize the canvas to the new native stream dimensions.
+      currentRotation = 0;
+      updateScreenLayout(w, h);
+
+      if (changed) {
+        logger.info('DISPLAY', `Android orientation/stream size changed via ${source}: ${w}x${h}`, {
+          orientation: w > h ? 'landscape' : w < h ? 'portrait' : 'square',
+        });
+      }
+    }
 
     function getOptionsAndServer() {
       const version = $('#opt-server-version')?.value || 'v3.1';
@@ -1187,7 +1286,7 @@
 
         setConnected(true);
         setStatus('Connected', 'connected');
-        notify('Connected! Click the phone screen to send keyboard/touch input.');
+        notify('Connected! Click the phone screen for touch/mouse input. Mouse wheel and two-finger touchpad scrolling are supported.');
         startStats();
         logger.info('CONNECT', `=== Mirror session successfully established in ${(performance.now() - startTime).toFixed(1)}ms ===`);
       } catch (error) {
@@ -1259,21 +1358,48 @@
         renderer = new BitmapVideoFrameRenderer(screen);
       }
 
+      // Count decoded/rendered frames for the FPS meter. Some bundled decoder
+      // versions expose draw() directly; keep a second encoded-frame counter
+      // below as a fallback so the meter cannot remain stuck at 0.
+      const originalDraw = renderer.draw.bind(renderer);
+      renderer.draw = async (frame) => {
+        framesDrawn++;
+        return originalDraw(frame);
+      };
+
       decoder = new WebCodecsVideoDecoder({
         codec: video.metadata?.codec,
         renderer,
       });
       logger.info('DECODER', 'WebCodecsVideoDecoder initialized and attached to screen canvas');
 
+      updateScreenLayout(currentVideoWidth, currentVideoHeight);
+
+      // Listen to the live video stream size. This is important because the
+      // initial metadata is static; Android sends a new size when orientation
+      // changes.
+      if (typeof video.sizeChanged === 'function') {
+        video.sizeChanged(({ width, height }) => {
+          handleVideoSizeChange(width, height, 'videoStream.sizeChanged');
+        });
+      }
+
       decoder.sizeChanged(({ width, height }) => {
         logger.info('DECODER', `Video dimensions changed: ${width}x${height}`);
-        currentVideoWidth = width;
-        currentVideoHeight = height;
-        screen.width = width;
-        screen.height = height;
+        handleVideoSizeChange(width, height, 'decoder.sizeChanged');
       });
 
-      void video.stream.pipeTo(decoder.writable).then(() => {
+      const countedVideoStream = video.stream.pipeThrough(new TransformStream({
+        transform(packet, controller) {
+          if (packet?.type === 'data') {
+            encodedFrames++;
+            lastVideoPacketAt = performance.now();
+          }
+          controller.enqueue(packet);
+        },
+      }));
+
+      void countedVideoStream.pipeTo(decoder.writable).then(() => {
         logger.info('VIDEO', 'Video stream completed cleanly');
       }).catch((error) => {
         if (client) {
@@ -1355,8 +1481,23 @@
       if (event.type === 'pointermove' && activePointers.size === 0) return;
 
       const rect = screen.getBoundingClientRect();
-      const x = Math.max(0, Math.min(width, ((event.clientX - rect.left) / rect.width) * width));
-      const y = Math.max(0, Math.min(height, ((event.clientY - rect.top) / rect.height) * height));
+      const elemW = screen.offsetWidth || rect.width;
+      const elemH = screen.offsetHeight || rect.height;
+
+      // Center of element in viewport
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const dx = event.clientX - cx;
+      const dy = event.clientY - cy;
+
+      // The displayed canvas is always in the same orientation as the
+      // native scrcpy stream, so pointer coordinates map directly.
+      const normX = Math.max(0, Math.min(1, (dx + elemW / 2) / elemW));
+      const normY = Math.max(0, Math.min(1, (dy + elemH / 2) / elemH));
+
+      const x = Math.max(0, Math.min(width, normX * width));
+      const y = Math.max(0, Math.min(height, normY * height));
+
       let action;
       if (event.type === 'pointerdown') action = AndroidMotionEventAction.Down;
       else if (event.type === 'pointerup' || event.type === 'pointercancel') action = AndroidMotionEventAction.Up;
@@ -1373,6 +1514,7 @@
           pointerY: Math.round(y),
           videoWidth: width,
           videoHeight: height,
+          rotation: currentRotation,
           buttons,
         });
         lastTouchLog = now;
@@ -1408,6 +1550,75 @@
       if (event.type === 'pointerup' || event.type === 'pointercancel') {
         activePointers.delete(event.pointerId);
       }
+    }
+
+    // Mouse wheels and two-finger touchpads both arrive in the browser as
+    // WheelEvents. Convert browser deltas into scrcpy scroll ticks while
+    // preserving fractional values for smooth/high-resolution touchpad input.
+    function onWheel(event) {
+      if (!client?.controller) return;
+
+      const { width, height } = videoSize();
+      if (!width || !height) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      const rect = screen.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+
+      const normX = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+      const normY = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
+      const pointerX = Math.max(0, Math.min(width, normX * width));
+      const pointerY = Math.max(0, Math.min(height, normY * height));
+
+      // deltaMode is normally pixels in Chrome, but normalize line/page
+      // wheel events too so older mice and browsers behave consistently.
+      const unit =
+        event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 :
+        event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? rect.height :
+        1;
+
+      // Browser WheelEvent: +Y/+X means down/right.
+      // scrcpy: +scrollY/+scrollX means up/left, so invert both axes.
+      const scrollX = Math.max(-20, Math.min(20, (-event.deltaX * unit) / 100));
+      const scrollY = Math.max(-20, Math.min(20, (-event.deltaY * unit) / 100));
+
+      if (Math.abs(scrollX) < 0.0001 && Math.abs(scrollY) < 0.0001) return;
+
+      const now = performance.now();
+      if (now - lastScrollLog > 250) {
+        logger.touch('Scroll', {
+          source: event.deltaMode === WheelEvent.DOM_DELTA_PIXEL ? 'wheel/touchpad-pixel' : 'wheel',
+          scrollX: Number(scrollX.toFixed(3)),
+          scrollY: Number(scrollY.toFixed(3)),
+          pointerX: Math.round(pointerX),
+          pointerY: Math.round(pointerY),
+          videoWidth: width,
+          videoHeight: height,
+        });
+        lastScrollLog = now;
+      }
+
+      void client.controller.injectScroll({
+        pointerX: Math.round(pointerX),
+        pointerY: Math.round(pointerY),
+        videoWidth: width,
+        videoHeight: height,
+        scrollX,
+        scrollY,
+        buttons: 0,
+      }).catch((err) => {
+        logger.warn('SCROLL', `injectScroll exception: ${err?.message || String(err)}`, {
+          scrollX,
+          scrollY,
+          pointerX,
+          pointerY,
+        });
+        if (err?.message?.includes('closed') && client) {
+          handleUnexpectedDisconnect('Control socket closed');
+        }
+      });
     }
 
     function androidKeyCode(event) {
@@ -1463,13 +1674,32 @@
 
     function startStats() {
       clearInterval(statTimer);
-      lastRendered = decoder?.framesRendered || 0;
+      framesDrawn = 0;
+      encodedFrames = 0;
+
+      let lastRendered = 0;
+      let lastEncoded = 0;
+      let lastTime = performance.now();
+
       statTimer = setInterval(() => {
-        const total = decoder?.framesRendered || 0;
-        const fps = Math.max(0, total - lastRendered);
+        const now = performance.now();
+        const elapsedSec = (now - lastTime) / 1000;
+        if (elapsedSec <= 0) return;
+
+        const renderedDelta = framesDrawn - lastRendered;
+        const encodedDelta = encodedFrames - lastEncoded;
+
+        // Prefer actual decoder output. If a bundled renderer does not expose
+        // draw() in a way that can be wrapped, use one encoded video packet
+        // per access unit as the fallback.
+        const measuredFrames = renderedDelta > 0 ? renderedDelta : encodedDelta;
+        const fps = Math.max(0, Math.round(measuredFrames / elapsedSec));
+
         statFps.textContent = String(fps);
-        lastRendered = total;
-      }, 1000);
+        lastRendered = framesDrawn;
+        lastEncoded = encodedFrames;
+        lastTime = now;
+      }, 500);
     }
 
     async function disconnect() {
@@ -1484,6 +1714,9 @@
 
     async function cleanup() {
       clearInterval(statTimer);
+      framesDrawn = 0;
+      encodedFrames = 0;
+      lastVideoPacketAt = 0;
       activePointers.clear();
       try { decoder?.dispose(); } catch (_) {}
       decoder = undefined;
@@ -1526,9 +1759,26 @@
     });
     document.addEventListener('fullscreenchange', () => {
       $('#btn-fullscreen').textContent = document.fullscreenElement ? 'Exit fullscreen' : 'Fullscreen';
+      requestAnimationFrame(() => updateScreenLayout());
     });
+
+    window.addEventListener('resize', () => {
+      requestAnimationFrame(() => updateScreenLayout());
+    });
+
+    if (window.ResizeObserver) {
+      const stageResizeObserver = new ResizeObserver(() => {
+        requestAnimationFrame(() => updateScreenLayout());
+      });
+      stageResizeObserver.observe(stage);
+    }
     navButtons.forEach((button) => button.addEventListener('click', () => sendKey(Number(button.dataset.key))));
+    btnRotateScreen.addEventListener('click', () => {
+      updateScreenLayout();
+      notify(`Android stream: ${currentVideoWidth}×${currentVideoHeight} (${currentVideoWidth > currentVideoHeight ? 'landscape' : currentVideoWidth < currentVideoHeight ? 'portrait' : 'square'})`);
+    });
     ['pointerdown', 'pointermove', 'pointerup', 'pointercancel'].forEach((name) => screen.addEventListener(name, onPointer));
+    screen.addEventListener('wheel', onWheel, { passive: false });
     screen.addEventListener('contextmenu', (event) => event.preventDefault());
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && logsModal.classList.contains('open')) {
