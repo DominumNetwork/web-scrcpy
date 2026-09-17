@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#09111f">
   <title>Wireframe — Android Mirror</title>
+  <meta name="description" content="Web port of scrcpy for mirroring and controlling Android devices over WebUSB." />
+  <meta property="og:title" content="Wireframe — Android Mirror" />
+  <meta property="og:description" content="Web port of scrcpy for mirroring and controlling Android devices over WebUSB." />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
   <style>
     :root { color-scheme: dark; --ink:#edf4ff; --muted:#93a3bb; --panel:#121e31; --panel-2:#0d1728; --line:#263955; --blue:#68a7ff; --blue-deep:#377ce3; --green:#39d89c; --red:#ff7474; --shadow:0 20px 60px #02071399; }
     * { box-sizing:border-box; }
@@ -140,31 +145,37 @@
       const message = 'The app library did not load. Refresh once, then check that this deployment can reach esm.sh and jsDelivr (ad blockers and strict corporate networks can block them).';
       const primary = document.querySelector('#btn-connect');
       const empty = document.querySelector('#btn-connect-empty');
-      primary.disabled = empty.disabled = true;
+      if (primary) primary.disabled = true;
+      if (empty) empty.disabled = true;
       document.querySelector('#status-label').textContent = 'App failed to load';
       const toast = document.querySelector('#toast');
-      toast.textContent = message;
-      toast.className = 'toast error show';
+      if (toast) {
+        toast.textContent = message;
+        toast.className = 'toast error show';
+      }
     }, 7000);
   </script>
   <script type="module">
-    // Tango publishes its packages independently: matching the same number across
-    // all packages causes 404 module imports (and leaves buttons looking inert).
-    // These are the compatible, published browser package versions.
     import { Adb, AdbDaemonTransport } from 'https://esm.sh/@yume-chan/adb@2.6.3?bundle';
     import AdbWebCredentialStore from 'https://esm.sh/@yume-chan/adb-credential-web@2.1.0?bundle';
     import { AdbDaemonWebUsbDeviceManager } from 'https://esm.sh/@yume-chan/adb-daemon-webusb@2.3.2?bundle';
     import { AdbScrcpyClient, AdbScrcpyOptions2_3 } from 'https://esm.sh/@yume-chan/adb-scrcpy@2.3.2?bundle';
-    import { DefaultServerPath, AndroidKeyEventAction, AndroidKeyEventMeta, AndroidMotionEventAction, AndroidMotionEventButton, ScrcpyPointerId, ScrcpyAudioCodec } from 'https://esm.sh/@yume-chan/scrcpy@2.3.0?bundle';
+    import {
+      DefaultServerPath,
+      ScrcpyOptions2_3,
+      AndroidKeyEventAction,
+      AndroidKeyEventMeta,
+      AndroidMotionEventAction,
+      AndroidMotionEventButton,
+      ScrcpyPointerId,
+      ScrcpyAudioCodec
+    } from 'https://esm.sh/@yume-chan/scrcpy@2.3.0?bundle';
     import { TinyH264Decoder } from 'https://esm.sh/@yume-chan/scrcpy-decoder-tinyh264@2.1.0?bundle';
 
     window.__wireframeModuleReady = true;
 
-    // Keep the server and option serializer on the same 2.3 protocol revision.
-    // A 3.1 serializer can open the connection, but its stream/control layout
-    // does not match this 2.3 server, leaving the canvas and controller idle.
+    // Use scrcpy-server-v2.3 which matches AdbScrcpyOptions2_3 / ScrcpyOptions2_3
     const SERVER_URL = './scrcpy-server-v2.3';
-    const SERVER_VERSION = '2.3';
     const $ = (selector) => document.querySelector(selector);
     const screen = $('#screen');
     const shell = $('#screen-shell');
@@ -203,7 +214,7 @@
       clearTimeout(toastTimer);
       toast.textContent = message;
       toast.className = `toast ${kind} show`;
-      toastTimer = setTimeout(() => toast.className = `toast ${kind}`, kind === 'error' ? 9000 : 4500);
+      toastTimer = setTimeout(() => { toast.className = `toast ${kind}`; }, kind === 'error' ? 9000 : 4500);
     }
     function setConnected(connected) {
       connectButton.classList.toggle('hidden', connected);
@@ -219,23 +230,22 @@
     }
     function getOptions() {
       const audio = $('#opt-audio').value === 'on';
-      return new AdbScrcpyOptions2_3({
-        maxSize: Number($('#opt-size').value),
-        bitRate: Number($('#opt-bitrate').value),
-        maxFps: Number($('#opt-fps').value),
-        audio,
-        ...(audio ? { audioCodec: ScrcpyAudioCodec.Raw } : {}),
-        control: true,
-        turnScreenOff: $('#opt-screen').value === 'off',
-        // TinyH264Decoder uses the per-frame metadata to configure itself from
-        // the encoder's codec-config buffer before decoding video frames.
-        sendFrameMeta: true,
-        sendDeviceMeta: true,
-      }, { version: SERVER_VERSION });
+      return new AdbScrcpyOptions2_3(
+        new ScrcpyOptions2_3({
+          maxSize: Number($('#opt-size').value),
+          bitRate: Number($('#opt-bitrate').value),
+          maxFps: Number($('#opt-fps').value),
+          audio,
+          ...(audio ? { audioCodec: ScrcpyAudioCodec.Raw } : {}),
+          control: true,
+          turnScreenOff: $('#opt-screen').value === 'off',
+          sendDeviceMeta: true,
+        })
+      );
     }
     function requireCompatibleBrowser() {
       if (!window.isSecureContext) throw new Error('WebUSB needs a secure page. Serve this file from https:// or http://localhost (not a network share).');
-      if (!navigator.usb) throw new Error('WebUSB is unavailable. Open this in current Chrome or Edge on desktop.');
+      if (!navigator.usb) throw new Error('WebUSB is unavailable. Open this in Chrome or Edge on desktop.');
     }
     async function requestDevice() {
       const manager = AdbDaemonWebUsbDeviceManager.BROWSER;
@@ -249,23 +259,32 @@
       return Promise.race([promise, deadline]).finally(() => clearTimeout(timer));
     }
     function startBackgroundReaders() {
-      // ADB multiplexes all logical streams over one USB connection. Drain streams
-      // we do not otherwise display, or they can eventually stall the session.
       if (client?.output) {
         void client.output.pipeTo(new WritableStream({
           write(line) {
             const text = String(line).trim();
             if (!text) return;
             serverLog.push(text);
-            serverLog = serverLog.slice(-12);
+            serverLog = serverLog.slice(-16);
             console.debug('[scrcpy server]', text);
           },
-        })).catch((error) => { if (client) console.warn('Scrcpy server output ended', error); });
+        })).catch((error) => {
+          if (client) {
+            console.warn('Scrcpy server output ended', error);
+            handleUnexpectedDisconnect('Server process terminated.');
+          }
+        });
       }
       if (client?.clipboard) {
         void client.clipboard.pipeTo(new WritableStream({ write() {} }))
           .catch((error) => { if (client) console.warn('Clipboard stream ended', error); });
       }
+    }
+    async function handleUnexpectedDisconnect(reason) {
+      if (!client) return;
+      console.warn('Connection closed:', reason);
+      await disconnect();
+      notify(`Device disconnected: ${reason || 'Connection closed'}`, 'warn');
     }
     async function connect() {
       if (client) return;
@@ -286,7 +305,7 @@
 
         setStatus('Uploading mirror service', 'busy');
         const response = await withTimeout(fetch(SERVER_URL), 15000, 'downloading the scrcpy server');
-        if (!response.ok || !response.body) throw new Error(`Could not download the scrcpy server (${response.status}). Check your internet connection.`);
+        if (!response.ok || !response.body) throw new Error(`Could not download the scrcpy server (${response.status}). Confirm ${SERVER_URL} is deployed with this file.`);
         await withTimeout(AdbScrcpyClient.pushServer(adb, response.body), 30000, 'uploading the scrcpy server');
 
         setStatus('Starting screen mirror', 'busy');
@@ -296,14 +315,14 @@
         await withTimeout(attachStreams(), 15000, 'opening the video and audio streams');
         setConnected(true);
         setStatus('Connected', 'connected');
-        notify('Connected. Click the phone screen to send keyboard input.');
+        notify('Connected. Click the phone screen to send keyboard/touch input.');
         startStats();
       } catch (error) {
         await cleanup();
         const message = friendlyError(error);
         const detail = serverErrorDetail(error);
         setStatus('Connection failed');
-        notify(detail ? `${message} Server: ${detail}` : message, 'error');
+        notify(detail ? `${message} Server output: ${detail}` : message, 'error');
         console.error('Wireframe connection error:', error, error?.output, serverLog);
       } finally {
         setConnecting(false);
@@ -312,27 +331,35 @@
     async function authenticateWithTimeout(device, connection) {
       const authenticate = AdbDaemonTransport.authenticate({ serial: device.serial, connection, credentialStore: credentials });
       let timeout;
-      const deadline = new Promise((_, reject) => timeout = setTimeout(() => reject(new Error('Timed out waiting for USB debugging authorization.')), 45000));
+      const deadline = new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error('Timed out waiting for USB debugging authorization.')), 45000); });
       try { return await Promise.race([authenticate, deadline]); }
       finally { clearTimeout(timeout); }
     }
     async function attachStreams() {
       if (!client.videoStream) throw new Error('The phone did not provide a video stream.');
       const video = await client.videoStream;
-      currentVideoWidth = video.width || video.metadata.width || 0;
-      currentVideoHeight = video.height || video.metadata.height || 0;
+      currentVideoWidth = video.width || video.metadata?.width || 720;
+      currentVideoHeight = video.height || video.metadata?.height || 1280;
       decoder = new TinyH264Decoder({ canvas: screen });
       decoder.sizeChanged(({ width, height }) => {
-        currentVideoWidth = width; currentVideoHeight = height;
+        currentVideoWidth = width;
+        currentVideoHeight = height;
+        screen.width = width;
+        screen.height = height;
       });
-      void video.stream.pipeTo(decoder.writable).catch((error) => { if (client) notify(`Video stream ended: ${error.message || error}`, 'error'); });
+      void video.stream.pipeTo(decoder.writable).catch((error) => {
+        if (client) {
+          notify(`Video stream ended: ${error.message || error}`, 'error');
+          handleUnexpectedDisconnect('Video stream ended');
+        }
+      });
 
       if (!client.audioStream) { statAudio.textContent = 'Audio off'; return; }
       const audio = await client.audioStream;
       if (audio.type !== 'success') {
         statAudio.textContent = 'Audio unavailable';
         const reason = audio?.error?.message || audio?.message;
-        notify(`Mirror connected, but this device cannot forward audio${reason ? `: ${reason}` : ' in the selected mode'}.`, 'warn');
+        notify(`Mirror connected, but audio cannot be forwarded${reason ? `: ${reason}` : ' on this device'}.`, 'warn');
         console.warn('Scrcpy audio forwarding unavailable', audio);
         return;
       }
@@ -369,26 +396,43 @@
     function eventToTouch(event) {
       const { width, height } = videoSize();
       if (!client?.controller || !width || !height) return;
+
+      // Only send move events when a pointer/touch is actually pressed
+      if (event.type === 'pointermove' && activePointers.size === 0) return;
+
       const rect = screen.getBoundingClientRect();
       const x = Math.max(0, Math.min(width, ((event.clientX - rect.left) / rect.width) * width));
       const y = Math.max(0, Math.min(height, ((event.clientY - rect.top) / rect.height) * height));
       let action;
       if (event.type === 'pointerdown') action = AndroidMotionEventAction.Down;
       else if (event.type === 'pointerup' || event.type === 'pointercancel') action = AndroidMotionEventAction.Up;
-      else action = activePointers.size ? AndroidMotionEventAction.Move : AndroidMotionEventAction.HoverMove;
+      else action = AndroidMotionEventAction.Move;
+
       const buttonMap = [AndroidMotionEventButton.Primary, AndroidMotionEventButton.Tertiary, AndroidMotionEventButton.Secondary, AndroidMotionEventButton.Back, AndroidMotionEventButton.Forward];
       const buttons = event.buttons || 0;
       void client.controller.injectTouch({
         action, pointerId: BigInt(event.pointerId), pointerX: Math.round(x), pointerY: Math.round(y), videoWidth: width, videoHeight: height,
         pressure: buttons ? 1 : 0, actionButton: buttonMap[event.button] ?? 0, buttons,
-      }).catch(console.warn);
+      }).catch((err) => {
+        if (err?.message?.includes('closed')) {
+          handleUnexpectedDisconnect('Socket closed by device');
+        } else {
+          console.warn('Touch injection warning:', err);
+        }
+      });
     }
     function onPointer(event) {
       if (!client) return;
       event.preventDefault();
-      if (event.type === 'pointerdown') { screen.focus(); screen.setPointerCapture(event.pointerId); activePointers.add(event.pointerId); }
+      if (event.type === 'pointerdown') {
+        screen.focus();
+        try { screen.setPointerCapture(event.pointerId); } catch (_) {}
+        activePointers.add(event.pointerId);
+      }
       eventToTouch(event);
-      if (event.type === 'pointerup' || event.type === 'pointercancel') activePointers.delete(event.pointerId);
+      if (event.type === 'pointerup' || event.type === 'pointercancel') {
+        activePointers.delete(event.pointerId);
+      }
     }
     function androidKeyCode(event) {
       const codes = { Escape:4, Home:3, End:187, Backspace:67, Enter:66, Tab:61, ' ':62, Delete:112, ArrowUp:19, ArrowDown:20, ArrowLeft:21, ArrowRight:22, PageUp:92, PageDown:93, F1:131, F2:132, F3:133, F4:134, F5:135, F6:136, F7:137, F8:138, F9:139, F10:140, F11:141, F12:142 };
@@ -397,44 +441,80 @@
       if (/^Digit[0-9]$/.test(event.code)) return 7 + Number(event.code[5]);
       return undefined;
     }
-    function metaState(event) { return (event.shiftKey ? AndroidKeyEventMeta.Shift : 0) | (event.altKey ? AndroidKeyEventMeta.Alt : 0) | (event.ctrlKey ? AndroidKeyEventMeta.Ctrl : 0) | (event.metaKey ? AndroidKeyEventMeta.Meta : 0); }
+    function metaState(event) {
+      return (event.shiftKey ? AndroidKeyEventMeta.Shift : 0) | (event.altKey ? AndroidKeyEventMeta.Alt : 0) | (event.ctrlKey ? AndroidKeyEventMeta.Ctrl : 0) | (event.metaKey ? AndroidKeyEventMeta.Meta : 0);
+    }
     function onKey(event) {
       if (!client?.controller || document.activeElement !== screen) return;
       const code = androidKeyCode(event);
       if (code === undefined) {
-        if (event.type === 'keydown' && event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) { event.preventDefault(); void client.controller.injectText(event.key).catch(console.warn); }
+        if (event.type === 'keydown' && event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
+          event.preventDefault();
+          void client.controller.injectText(event.key).catch((err) => {
+            if (err?.message?.includes('closed')) handleUnexpectedDisconnect('Socket closed');
+          });
+        }
         return;
       }
       event.preventDefault();
-      void client.controller.injectKeyCode({ action:event.type === 'keydown' ? AndroidKeyEventAction.Down : AndroidKeyEventAction.Up, keyCode:code, repeat:event.repeat ? 1 : 0, metaState:metaState(event) }).catch(console.warn);
+      void client.controller.injectKeyCode({
+        action: event.type === 'keydown' ? AndroidKeyEventAction.Down : AndroidKeyEventAction.Up,
+        keyCode: code,
+        repeat: event.repeat ? 1 : 0,
+        metaState: metaState(event)
+      }).catch((err) => {
+        if (err?.message?.includes('closed')) handleUnexpectedDisconnect('Socket closed');
+      });
     }
     async function sendKey(keyCode) {
       if (!client?.controller) return;
-      try { await client.controller.injectKeyCode({ action:AndroidKeyEventAction.Down, keyCode, repeat:0, metaState:AndroidKeyEventMeta.None }); await client.controller.injectKeyCode({ action:AndroidKeyEventAction.Up, keyCode, repeat:0, metaState:AndroidKeyEventMeta.None }); }
-      catch (error) { console.warn(error); }
+      try {
+        await client.controller.injectKeyCode({ action: AndroidKeyEventAction.Down, keyCode, repeat: 0, metaState: AndroidKeyEventMeta.None });
+        await client.controller.injectKeyCode({ action: AndroidKeyEventAction.Up, keyCode, repeat: 0, metaState: AndroidKeyEventMeta.None });
+      } catch (error) {
+        if (error?.message?.includes('closed')) handleUnexpectedDisconnect('Socket closed');
+        else console.warn(error);
+      }
     }
     function startStats() {
-      clearInterval(statTimer); lastRendered = decoder?.framesRendered || 0;
-      statTimer = setInterval(() => { const total = decoder?.framesRendered || 0; statFps.textContent = String(Math.max(0, total - lastRendered)); lastRendered = total; }, 1000);
+      clearInterval(statTimer);
+      lastRendered = decoder?.framesRendered || 0;
+      statTimer = setInterval(() => {
+        const total = decoder?.framesRendered || 0;
+        statFps.textContent = String(Math.max(0, total - lastRendered));
+        lastRendered = total;
+      }, 1000);
     }
     async function disconnect() {
-      await cleanup(); setConnected(false); setStatus('No device'); statFps.textContent = '—'; statAudio.textContent = 'Audio —'; notify('Disconnected.');
+      await cleanup();
+      setConnected(false);
+      setStatus('No device');
+      statFps.textContent = '—';
+      statAudio.textContent = 'Audio —';
+      notify('Disconnected.');
     }
     async function cleanup() {
-      clearInterval(statTimer); activePointers.clear();
-      try { decoder?.dispose(); } catch (_) {} decoder = undefined;
-      try { await client?.close(); } catch (_) {} client = undefined;
-      try { await adb?.close(); } catch (_) {} adb = undefined;
-      try { await transport?.close(); } catch (_) {} transport = undefined;
-      try { await audioContext?.close(); } catch (_) {} audioContext = undefined; nextAudioTime = 0;
+      clearInterval(statTimer);
+      activePointers.clear();
+      try { decoder?.dispose(); } catch (_) {}
+      decoder = undefined;
+      try { await client?.close(); } catch (_) {}
+      client = undefined;
+      try { await adb?.close(); } catch (_) {}
+      adb = undefined;
+      try { await transport?.close(); } catch (_) {}
+      transport = undefined;
+      try { await audioContext?.close(); } catch (_) {}
+      audioContext = undefined;
+      nextAudioTime = 0;
     }
     function friendlyError(error) {
       const raw = `${error?.message || String(error)} ${serverErrorDetail(error)}`;
-      if (/Invalid option value/i.test(raw)) return 'The browser sent an invalid scrcpy option. Reload the page to use the corrected 2.3 option serializer, then reconnect.';
-      if (/SurfaceControl|createDisplay|NoSuchMethodException|InvocationTargetException/i.test(raw)) return 'The bundled scrcpy server is incompatible with this Android version. Confirm that scrcpy-server-v2.3 is next to the HTML file, then reload the page.';
-      if (/authoriz|authenticat|timed out/i.test(raw)) return 'USB debugging was not approved. Unlock the phone, reconnect it, then accept the RSA fingerprint prompt. If no prompt appears, revoke USB debugging authorizations in Developer options and try again.';
-      if (/claimInterface|claim interface|busy/i.test(raw)) return 'The phone USB interface is busy. Close Android Studio, adb, native scrcpy, phone-suite software, then reconnect and retry.';
-      if (/audio.*(capture|disabled|encoder)|failed to start audio/i.test(raw)) return 'Audio forwarding could not start. Mirror with audio off; Android 11 needs the phone unlocked when starting, and Android 10 or older cannot capture device audio.';
+      if (/Invalid option value/i.test(raw)) return 'The browser sent an invalid scrcpy option. Reconnect to apply the updated 2.3 option serializer.';
+      if (/SurfaceControl|createDisplay|NoSuchMethodException|InvocationTargetException/i.test(raw)) return 'The scrcpy server binary is incompatible with this Android version. Check that scrcpy-server-v2.3 is in the same folder as index.html.';
+      if (/authoriz|authenticat|timed out/i.test(raw)) return 'USB debugging was not approved. Unlock the phone, reconnect it, then accept the RSA fingerprint prompt on your screen.';
+      if (/claimInterface|claim interface|busy/i.test(raw)) return 'The phone USB interface is busy. Close Android Studio, native adb, or scrcpy on your PC, then reconnect.';
+      if (/audio.*(capture|disabled|encoder)|failed to start audio/i.test(raw)) return 'Audio forwarding could not start on this Android version. Turn audio off in settings and reconnect.';
       if (/device.*not found|cancel/i.test(raw)) return 'No USB device was selected.';
       return `Connection failed: ${raw}`;
     }
@@ -447,8 +527,13 @@
     connectButton.addEventListener('click', connect);
     emptyConnectButton.addEventListener('click', connect);
     disconnectButton.addEventListener('click', disconnect);
-    $('#btn-fullscreen').addEventListener('click', () => document.fullscreenElement ? document.exitFullscreen() : stage.requestFullscreen().catch((error) => notify(`Fullscreen unavailable: ${error.message}`, 'error')));
-    document.addEventListener('fullscreenchange', () => $('#btn-fullscreen').textContent = document.fullscreenElement ? 'Exit fullscreen' : 'Fullscreen');
+    $('#btn-fullscreen').addEventListener('click', () => {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else stage.requestFullscreen().catch((error) => notify(`Fullscreen unavailable: ${error.message}`, 'error'));
+    });
+    document.addEventListener('fullscreenchange', () => {
+      $('#btn-fullscreen').textContent = document.fullscreenElement ? 'Exit fullscreen' : 'Fullscreen';
+    });
     navButtons.forEach((button) => button.addEventListener('click', () => sendKey(Number(button.dataset.key))));
     ['pointerdown','pointermove','pointerup','pointercancel'].forEach((name) => screen.addEventListener(name, onPointer));
     screen.addEventListener('contextmenu', (event) => event.preventDefault());
