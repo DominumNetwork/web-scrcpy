@@ -142,7 +142,7 @@
     }, true);
     setTimeout(() => {
       if (window.__wireframeModuleReady) return;
-      const message = 'The app library did not load. Refresh once, then check that this deployment can reach esm.sh and jsDelivr (ad blockers and strict corporate networks can block them).';
+      const message = 'The app library did not load. Refresh once, then check that this deployment can reach esm.sh and jsDelivr.';
       const primary = document.querySelector('#btn-connect');
       const empty = document.querySelector('#btn-connect-empty');
       if (primary) primary.disabled = true;
@@ -162,7 +162,6 @@
     import { AdbScrcpyClient, AdbScrcpyOptions2_3 } from 'https://esm.sh/@yume-chan/adb-scrcpy@2.3.2?bundle';
     import {
       DefaultServerPath,
-      ScrcpyOptions2_3,
       AndroidKeyEventAction,
       AndroidKeyEventMeta,
       AndroidMotionEventAction,
@@ -174,7 +173,7 @@
 
     window.__wireframeModuleReady = true;
 
-    // Use scrcpy-server-v2.3 which matches AdbScrcpyOptions2_3 / ScrcpyOptions2_3
+    // Use scrcpy-server-v2.3 in your repository root
     const SERVER_URL = './scrcpy-server-v2.3';
     const $ = (selector) => document.querySelector(selector);
     const screen = $('#screen');
@@ -230,21 +229,20 @@
     }
     function getOptions() {
       const audio = $('#opt-audio').value === 'on';
-      return new AdbScrcpyOptions2_3(
-        new ScrcpyOptions2_3({
-          maxSize: Number($('#opt-size').value),
-          bitRate: Number($('#opt-bitrate').value),
-          maxFps: Number($('#opt-fps').value),
-          audio,
-          ...(audio ? { audioCodec: ScrcpyAudioCodec.Raw } : {}),
-          control: true,
-          turnScreenOff: $('#opt-screen').value === 'off',
-          sendDeviceMeta: true,
-        })
-      );
+      // In @yume-chan/adb-scrcpy v2.3.2, AdbScrcpyOptions2_3 takes a plain options value object directly:
+      return new AdbScrcpyOptions2_3({
+        maxSize: Number($('#opt-size').value),
+        videoBitRate: Number($('#opt-bitrate').value),
+        maxFps: Number($('#opt-fps').value),
+        audio,
+        ...(audio ? { audioCodec: ScrcpyAudioCodec.Raw } : {}),
+        control: true,
+        turnScreenOff: $('#opt-screen').value === 'off',
+        sendDeviceMeta: true,
+      });
     }
     function requireCompatibleBrowser() {
-      if (!window.isSecureContext) throw new Error('WebUSB needs a secure page. Serve this file from https:// or http://localhost (not a network share).');
+      if (!window.isSecureContext) throw new Error('WebUSB needs a secure page. Serve this file from https:// or http://localhost.');
       if (!navigator.usb) throw new Error('WebUSB is unavailable. Open this in Chrome or Edge on desktop.');
     }
     async function requestDevice() {
@@ -305,7 +303,7 @@
 
         setStatus('Uploading mirror service', 'busy');
         const response = await withTimeout(fetch(SERVER_URL), 15000, 'downloading the scrcpy server');
-        if (!response.ok || !response.body) throw new Error(`Could not download the scrcpy server (${response.status}). Confirm ${SERVER_URL} is deployed with this file.`);
+        if (!response.ok || !response.body) throw new Error(`Could not download the scrcpy server (${response.status}). Confirm ${SERVER_URL} is in your repository root.`);
         await withTimeout(AdbScrcpyClient.pushServer(adb, response.body), 30000, 'uploading the scrcpy server');
 
         setStatus('Starting screen mirror', 'busy');
@@ -397,7 +395,6 @@
       const { width, height } = videoSize();
       if (!client?.controller || !width || !height) return;
 
-      // Only send move events when a pointer/touch is actually pressed
       if (event.type === 'pointermove' && activePointers.size === 0) return;
 
       const rect = screen.getBoundingClientRect();
@@ -510,7 +507,7 @@
     }
     function friendlyError(error) {
       const raw = `${error?.message || String(error)} ${serverErrorDetail(error)}`;
-      if (/Invalid option value/i.test(raw)) return 'The browser sent an invalid scrcpy option. Reconnect to apply the updated 2.3 option serializer.';
+      if (/Invalid option value/i.test(raw)) return 'The browser sent an invalid scrcpy option. Check your option configuration and reconnect.';
       if (/SurfaceControl|createDisplay|NoSuchMethodException|InvocationTargetException/i.test(raw)) return 'The scrcpy server binary is incompatible with this Android version. Check that scrcpy-server-v2.3 is in the same folder as index.html.';
       if (/authoriz|authenticat|timed out/i.test(raw)) return 'USB debugging was not approved. Unlock the phone, reconnect it, then accept the RSA fingerprint prompt on your screen.';
       if (/claimInterface|claim interface|busy/i.test(raw)) return 'The phone USB interface is busy. Close Android Studio, native adb, or scrcpy on your PC, then reconnect.';
