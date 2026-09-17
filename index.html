@@ -156,7 +156,8 @@
               <option value="v3.0.2">v3.0.2 (Android 14, 15+)</option>
               <option value="v2.7">v2.7 (Android 12–14)</option>
               <option value="v2.4">v2.4 (Android 11–14)</option>
-              <option value="v2.3">v2.3 (Legacy)</option>
+              <option value="v2.3">v2.3 (Android 10–13)</option>
+              <option value="v2.1">v2.1 (Legacy Android 8–11)</option>
             </select>
           </label>
           <label class="wide">Max resolution
@@ -280,32 +281,32 @@
     }, 7000);
   </script>
   <script type="module">
-    import { Adb, AdbDaemonTransport } from 'https://esm.sh/@yume-chan/adb@2.6.3?bundle';
-    import AdbWebCredentialStore from 'https://esm.sh/@yume-chan/adb-credential-web@2.1.0?bundle';
-    import { AdbDaemonWebUsbDeviceManager } from 'https://esm.sh/@yume-chan/adb-daemon-webusb@2.3.2?bundle';
     import {
+      Adb,
+      AdbDaemonTransport,
+      AdbWebCredentialStore,
+      AdbDaemonWebUsbDeviceManager,
       AdbScrcpyClient,
+      AdbScrcpyOptions2_1,
       AdbScrcpyOptions2_3,
       AdbScrcpyOptions2_4,
       AdbScrcpyOptions2_7,
       AdbScrcpyOptions3_0_2,
-      AdbScrcpyOptions3_1
-    } from 'https://esm.sh/@yume-chan/adb-scrcpy@2.3.2?bundle';
-    import {
+      AdbScrcpyOptions3_1,
       DefaultServerPath,
       AndroidKeyEventAction,
       AndroidKeyEventMeta,
       AndroidMotionEventAction,
       AndroidMotionEventButton,
       ScrcpyPointerId,
-      ScrcpyAudioCodec
-    } from 'https://esm.sh/@yume-chan/scrcpy@2.3.0?bundle';
-    import {
+      ScrcpyAudioCodec,
+      ScrcpyVideoCodecId,
       WebCodecsVideoDecoder,
       WebGLVideoFrameRenderer,
-      BitmapVideoFrameRenderer
-    } from 'https://esm.sh/@yume-chan/scrcpy-decoder-webcodecs@2.1.0?bundle';
-    import { TinyH264Decoder } from 'https://esm.sh/@yume-chan/scrcpy-decoder-tinyh264@2.1.0?bundle';
+      BitmapVideoFrameRenderer,
+      Consumable,
+      PushReadableStream,
+    } from './tango-bundle.js';
 
     window.__wireframeModuleReady = true;
 
@@ -963,6 +964,12 @@
             stayAwake: true,
           });
           break;
+        case 'v2.1':
+          options = new AdbScrcpyOptions2_1({
+            ...rawOptions,
+            turnScreenOff: $('#opt-screen').value === 'off',
+          });
+          break;
         case 'v2.3':
         default:
           options = new AdbScrcpyOptions2_3({
@@ -980,17 +987,31 @@
       const candidates = [
         serverUrl,
         `./${serverUrl.replace(/^\.\//, '')}`,
+        `/${serverUrl.replace(/^\.\//, '')}`,
         `./public/${serverUrl.replace(/^\.\//, '')}`,
+        `/public/${serverUrl.replace(/^\.\//, '')}`,
+        `./scrcpy-server-${version}`,
+        `/scrcpy-server-${version}`,
+        `./public/scrcpy-server-${version}`,
+        `/public/scrcpy-server-${version}`,
         `https://github.com/Genymobile/scrcpy/releases/download/${version}/scrcpy-server-${version}`,
       ];
 
       let lastError;
       for (const url of candidates) {
         try {
-          logger.info('SERVER', `Fetching scrcpy server from ${url}...`);
+          logger.info('SERVER', `Searching for scrcpy server from ${url}...`);
           const res = await fetch(url);
-          if (res.ok && res.body) {
-            return { response: res, resolvedUrl: url };
+          if (res.ok) {
+            const buf = await res.arrayBuffer();
+            if (buf && buf.byteLength > 1000) {
+              logger.info('SERVER', `Successfully retrieved server binary (${buf.byteLength} bytes) from ${url}`);
+              return {
+                data: new Uint8Array(buf),
+                resolvedUrl: url,
+                length: buf.byteLength,
+              };
+            }
           }
         } catch (e) {
           lastError = e;
@@ -1123,12 +1144,15 @@
         setStatus('Uploading mirror service', 'busy');
         logger.info('SERVER', `Fetching scrcpy server jar (${version})...`);
         const tFetchStart = performance.now();
-        const { response, resolvedUrl } = await withTimeout(fetchServerBinary(serverUrl, version), 20000, 'downloading the scrcpy server');
-        const serverLength = response.headers.get('content-length');
-        logger.info('SERVER', `Scrcpy server downloaded in ${(performance.now() - tFetchStart).toFixed(1)}ms from ${resolvedUrl} (size: ${serverLength || 'unknown'} bytes). Pushing to device /data/local/tmp/scrcpy-server.jar...`);
+        const { data, resolvedUrl, length } = await withTimeout(fetchServerBinary(serverUrl, version), 20000, 'downloading the scrcpy server');
+        logger.info('SERVER', `Scrcpy server downloaded in ${(performance.now() - tFetchStart).toFixed(1)}ms from ${resolvedUrl} (size: ${length || 'unknown'} bytes). Pushing to device /data/local/tmp/scrcpy-server.jar...`);
 
         const tPushStart = performance.now();
-        await withTimeout(AdbScrcpyClient.pushServer(adb, response.body), 30000, 'uploading the scrcpy server');
+        const serverStream = new PushReadableStream((controller) => {
+          controller.enqueue(new Consumable(data));
+          controller.close();
+        });
+        await withTimeout(AdbScrcpyClient.pushServer(adb, serverStream), 30000, 'uploading the scrcpy server');
         logger.info('SERVER', `Server jar pushed successfully in ${(performance.now() - tPushStart).toFixed(1)}ms`);
 
         setStatus('Starting screen mirror', 'busy');
@@ -1206,24 +1230,26 @@
         hasWebCodecsSupport: WebCodecsVideoDecoder.isSupported,
       });
 
-      if (WebCodecsVideoDecoder.isSupported) {
-        let renderer;
-        try {
-          renderer = new WebGLVideoFrameRenderer(screen);
-          logger.info('DECODER', 'Created WebGLVideoFrameRenderer for WebCodecs');
-        } catch (rErr) {
-          logger.warn('DECODER', 'WebGLVideoFrameRenderer failed, falling back to BitmapVideoFrameRenderer', { error: rErr.message });
-          renderer = new BitmapVideoFrameRenderer(screen);
-        }
-        decoder = new WebCodecsVideoDecoder({
-          codec: video.metadata?.codec,
-          renderer,
-        });
-        logger.info('DECODER', 'WebCodecsVideoDecoder initialized successfully');
-      } else {
-        logger.warn('DECODER', 'WebCodecs not supported in this browser, falling back to TinyH264Decoder (software baseline)');
-        decoder = new TinyH264Decoder({ canvas: screen });
+      if (!WebCodecsVideoDecoder.isSupported) {
+        const err = new Error('WebCodecs video decoding is not supported in this browser. Please use Google Chrome, Microsoft Edge, or a Chromium-based browser.');
+        logger.error('DECODER', err.message);
+        throw err;
       }
+
+      let renderer;
+      try {
+        renderer = new WebGLVideoFrameRenderer(screen);
+        logger.info('DECODER', 'Created WebGLVideoFrameRenderer for WebCodecs hardware accelerated rendering');
+      } catch (rErr) {
+        logger.warn('DECODER', 'WebGLVideoFrameRenderer unavailable, falling back to BitmapVideoFrameRenderer', { error: rErr.message });
+        renderer = new BitmapVideoFrameRenderer(screen);
+      }
+
+      decoder = new WebCodecsVideoDecoder({
+        codec: video.metadata?.codec,
+        renderer,
+      });
+      logger.info('DECODER', 'WebCodecsVideoDecoder initialized and attached to screen canvas');
 
       decoder.sizeChanged(({ width, height }) => {
         logger.info('DECODER', `Video dimensions changed: ${width}x${height}`);
@@ -1346,11 +1372,12 @@
         videoWidth: width,
         videoHeight: height,
         pressure: buttons ? 1 : 0,
-        buttons,
+        actionButton: buttons ? AndroidMotionEventButton.Primary : 0,
+        buttons: buttons ? AndroidMotionEventButton.Primary : 0,
       }).catch((err) => {
         logger.warn('TOUCH', `injectTouch exception: ${err?.message || String(err)}`, { action, x, y });
-        if (err?.message?.includes('closed')) {
-          handleUnexpectedDisconnect('Socket closed by device');
+        if (err?.message?.includes('closed') && client) {
+          handleUnexpectedDisconnect('Control socket closed');
         }
       });
     }
