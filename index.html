@@ -150,6 +150,15 @@
       <aside>
         <p class="section-label">Stream settings</p>
         <div class="field-group">
+          <label class="wide">Scrcpy Server (Android version)
+            <select id="opt-server-version">
+              <option value="v3.1" selected>v3.1 (Auto / Android 14, 15, 16+)</option>
+              <option value="v3.0.2">v3.0.2 (Android 14, 15+)</option>
+              <option value="v2.7">v2.7 (Android 12–14)</option>
+              <option value="v2.4">v2.4 (Android 11–14)</option>
+              <option value="v2.3">v2.3 (Legacy)</option>
+            </select>
+          </label>
           <label class="wide">Max resolution
             <select id="opt-size">
               <option value="0">Native</option><option value="1920">1920 px</option><option value="1280" selected>1280 px — balanced</option><option value="1024">1024 px</option><option value="720">720 px — low latency</option>
@@ -274,7 +283,14 @@
     import { Adb, AdbDaemonTransport } from 'https://esm.sh/@yume-chan/adb@2.6.3?bundle';
     import AdbWebCredentialStore from 'https://esm.sh/@yume-chan/adb-credential-web@2.1.0?bundle';
     import { AdbDaemonWebUsbDeviceManager } from 'https://esm.sh/@yume-chan/adb-daemon-webusb@2.3.2?bundle';
-    import { AdbScrcpyClient, AdbScrcpyOptions2_3 } from 'https://esm.sh/@yume-chan/adb-scrcpy@2.3.2?bundle';
+    import {
+      AdbScrcpyClient,
+      AdbScrcpyOptions2_3,
+      AdbScrcpyOptions2_4,
+      AdbScrcpyOptions2_7,
+      AdbScrcpyOptions3_0_2,
+      AdbScrcpyOptions3_1
+    } from 'https://esm.sh/@yume-chan/adb-scrcpy@2.3.2?bundle';
     import {
       DefaultServerPath,
       AndroidKeyEventAction,
@@ -620,6 +636,7 @@
         const subDivider = '-'.repeat(80);
 
         const currentOpts = {
+          serverVersion: $('#opt-server-version')?.value || 'v3.1',
           maxSize: $('#opt-size').value,
           fps: $('#opt-fps').value,
           bitrate: $('#opt-bitrate').value,
@@ -649,12 +666,13 @@
         out += `- Location URL: ${window.location.href}\n\n`;
 
         out += `[2. STREAM & SCRCPY SETTINGS]\n`;
+        out += `- Server Version Target: ${currentOpts.serverVersion}\n`;
         out += `- Max Size: ${currentOpts.maxSize === '0' ? 'Native (0)' : currentOpts.maxSize + ' px'}\n`;
         out += `- Frame Rate: ${currentOpts.fps} FPS\n`;
         out += `- Bitrate: ${Number(currentOpts.bitrate) / 1000000} Mbps\n`;
         out += `- Audio Passthrough: ${currentOpts.audio}\n`;
         out += `- Phone Screen: ${currentOpts.screen}\n`;
-        out += `- Server Binary URL: ${SERVER_URL}\n\n`;
+        out += `- Server Binary URL Target: ./scrcpy-server-${currentOpts.serverVersion}\n\n`;
 
         out += `[3. CONNECTED USB DEVICE METADATA]\n`;
         if (this.deviceInfo) {
@@ -903,7 +921,8 @@
     let lastRendered = 0;
     let serverLog = [];
 
-    function getOptions() {
+    function getOptionsAndServer() {
+      const version = $('#opt-server-version')?.value || 'v3.1';
       const audio = $('#opt-audio').value === 'on';
       const rawOptions = {
         maxSize: Number($('#opt-size').value),
@@ -912,11 +931,72 @@
         audio,
         ...(audio ? { audioCodec: ScrcpyAudioCodec.Raw } : {}),
         control: true,
-        turnScreenOff: $('#opt-screen').value === 'off',
         sendDeviceMeta: true,
       };
-      logger.info('SCRCPY', 'Configuring AdbScrcpyOptions2_3 with options', rawOptions);
-      return new AdbScrcpyOptions2_3(rawOptions);
+
+      let serverUrl = `./scrcpy-server-${version}`;
+      let options;
+
+      switch (version) {
+        case 'v3.1':
+          options = new AdbScrcpyOptions3_1({
+            ...rawOptions,
+            stayAwake: true,
+          });
+          break;
+        case 'v3.0.2':
+        case 'v3.0':
+          options = new AdbScrcpyOptions3_0_2({
+            ...rawOptions,
+            stayAwake: true,
+          });
+          break;
+        case 'v2.7':
+          options = new AdbScrcpyOptions2_7({
+            ...rawOptions,
+            stayAwake: true,
+          });
+          break;
+        case 'v2.4':
+          options = new AdbScrcpyOptions2_4({
+            ...rawOptions,
+            stayAwake: true,
+          });
+          break;
+        case 'v2.3':
+        default:
+          options = new AdbScrcpyOptions2_3({
+            ...rawOptions,
+            turnScreenOff: $('#opt-screen').value === 'off',
+          });
+          break;
+      }
+
+      logger.info('SCRCPY', `Configured ${options.constructor.name} for server ${version}`, rawOptions);
+      return { serverUrl, options, version };
+    }
+
+    async function fetchServerBinary(serverUrl, version) {
+      const candidates = [
+        serverUrl,
+        `./${serverUrl.replace(/^\.\//, '')}`,
+        `./public/${serverUrl.replace(/^\.\//, '')}`,
+        `https://github.com/Genymobile/scrcpy/releases/download/${version}/scrcpy-server-${version}`,
+      ];
+
+      let lastError;
+      for (const url of candidates) {
+        try {
+          logger.info('SERVER', `Fetching scrcpy server from ${url}...`);
+          const res = await fetch(url);
+          if (res.ok && res.body) {
+            return { response: res, resolvedUrl: url };
+          }
+        } catch (e) {
+          lastError = e;
+        }
+      }
+      throw new Error(`Could not fetch scrcpy-server binary (${version}) from local files or GitHub: ${lastError?.message || 'Not found'}`);
     }
 
     function requireCompatibleBrowser() {
@@ -1038,17 +1118,14 @@
         logger.info('ADB', `ADB RSA authentication succeeded in ${(performance.now() - tAuthStart).toFixed(1)}ms`);
         adb = new Adb(authenticated);
 
+        const { serverUrl, options, version } = getOptionsAndServer();
+
         setStatus('Uploading mirror service', 'busy');
-        logger.info('SERVER', `Fetching scrcpy server jar from ${SERVER_URL}...`);
+        logger.info('SERVER', `Fetching scrcpy server jar (${version})...`);
         const tFetchStart = performance.now();
-        const response = await withTimeout(fetch(SERVER_URL), 15000, 'downloading the scrcpy server');
-        if (!response.ok || !response.body) {
-          const err = new Error(`Could not download scrcpy server (${response.status} ${response.statusText}) from ${SERVER_URL}`);
-          logger.error('SERVER', err.message, { status: response.status, url: SERVER_URL });
-          throw err;
-        }
+        const { response, resolvedUrl } = await withTimeout(fetchServerBinary(serverUrl, version), 20000, 'downloading the scrcpy server');
         const serverLength = response.headers.get('content-length');
-        logger.info('SERVER', `Scrcpy server downloaded in ${(performance.now() - tFetchStart).toFixed(1)}ms (size: ${serverLength || 'unknown'} bytes). Pushing to device /data/local/tmp/scrcpy-server.jar...`);
+        logger.info('SERVER', `Scrcpy server downloaded in ${(performance.now() - tFetchStart).toFixed(1)}ms from ${resolvedUrl} (size: ${serverLength || 'unknown'} bytes). Pushing to device /data/local/tmp/scrcpy-server.jar...`);
 
         const tPushStart = performance.now();
         await withTimeout(AdbScrcpyClient.pushServer(adb, response.body), 30000, 'uploading the scrcpy server');
@@ -1060,8 +1137,7 @@
           startAudio();
         }
 
-        const options = getOptions();
-        logger.info('SCRCPY', 'Starting scrcpy client on device...', { DefaultServerPath });
+        logger.info('SCRCPY', 'Starting scrcpy client on device...', { DefaultServerPath, version, optionsClass: options.constructor.name });
         const tStartClient = performance.now();
         client = await withTimeout(AdbScrcpyClient.start(adb, DefaultServerPath, options), 30000, 'starting scrcpy on the phone');
         logger.info('SCRCPY', `Scrcpy process started on phone in ${(performance.now() - tStartClient).toFixed(1)}ms`);
@@ -1384,8 +1460,8 @@
 
     function friendlyError(error) {
       const raw = `${error?.message || String(error)} ${serverErrorDetail(error)}`;
-      if (/Invalid option value/i.test(raw)) return 'The browser sent an invalid scrcpy option. Check your option configuration and reconnect.';
-      if (/SurfaceControl|createDisplay|NoSuchMethodException|InvocationTargetException/i.test(raw)) return 'The scrcpy server binary is incompatible with this Android version. Check that scrcpy-server-v2.3 is in the same folder as index.html.';
+      if (/Invalid option value/i.test(raw)) return 'The browser sent an invalid scrcpy option. Reconnect to apply the updated option serializer.';
+      if (/SurfaceControl|createDisplay|NoSuchMethodException|InvocationTargetException/i.test(raw)) return 'Display API mismatch detected (SurfaceControl.createDisplay changed in Android 15/16). Switch Scrcpy Server to "v3.1" in the sidebar and reconnect.';
       if (/authoriz|authenticat|timed out/i.test(raw)) return 'USB debugging was not approved. Unlock the phone, reconnect it, then accept the RSA fingerprint prompt on your screen.';
       if (/claimInterface|claim interface|busy/i.test(raw)) return 'The phone USB interface is busy. Close Android Studio, native adb, or scrcpy on your PC, then reconnect.';
       if (/audio.*(capture|disabled|encoder)|failed to start audio/i.test(raw)) return 'Audio forwarding could not start on this Android version. Turn audio off in settings and reconnect.';
