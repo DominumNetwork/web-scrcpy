@@ -38,7 +38,9 @@
     .button:disabled { cursor:wait; opacity:.56; transform:none; }
     .badge { display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; padding:0 5px; border-radius:999px; font-size:10px; font-weight:700; background:#243c60; color:#cbe0ff; }
     .badge.error { background:#a93448; color:#fff; }
-    .layout { min-height:0; display:grid; grid-template-columns:278px minmax(0,1fr); }
+    .layout { min-height:0; display:grid; grid-template-columns:278px minmax(0,1fr); transition:grid-template-columns .22s cubic-bezier(.16,1,.3,1); }
+    .layout.sidebar-collapsed { grid-template-columns:0 minmax(0,1fr); }
+    .layout.sidebar-collapsed > aside:not(.quick-dock) { padding-left:0; padding-right:0; overflow:hidden; border-right:0; }
     aside { overflow:auto; padding:17px 14px; background:#0c1728; border-right:1px solid var(--line); }
     .section-label { margin:0 0 8px 6px; color:#7f91ac; font-size:10px; font-weight:750; letter-spacing:.1em; text-transform:uppercase; }
     .field-group { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-bottom:21px; }
@@ -53,6 +55,8 @@
     .shortcut { display:flex; align-items:center; justify-content:space-between; padding:7px 6px; color:#a8b7cb; border-bottom:1px solid #1b2b42; }
     kbd { min-width:36px; padding:2px 5px; border:1px solid #3b5070; border-radius:4px; color:#d9e7fb; background:#15243a; font:11px ui-monospace, SFMono-Regular, Consolas, monospace; text-align:center; }
     .stage { position:relative; min-width:0; min-height:0; display:flex; align-items:center; justify-content:center; overflow:hidden; background:radial-gradient(circle at 50% 44%,#1c2c47 0,#0a1322 45%,#070e19 100%); padding:12px; }
+    .stage.orientation-landscape { padding:8px; }
+    .stage:fullscreen { width:100vw; height:100vh; padding:8px; }
     .stage::before { content:""; position:absolute; inset:0; opacity:.25; pointer-events:none; background-image:linear-gradient(#ffffff08 1px,transparent 1px),linear-gradient(90deg,#ffffff08 1px,transparent 1px); background-size:26px 26px; mask-image:radial-gradient(ellipse,#000 0,transparent 74%); }
     #screen-shell { position:relative; z-index:1; display:flex; align-items:center; justify-content:center; width:100%; height:100%; max-width:100%; max-height:100%; pointer-events:none; }
     #screen { display:block; pointer-events:auto; max-width:calc(100% - 12px); max-height:calc(100% - 12px); object-fit:contain; background:#020508; border:1px solid #344a69; border-radius:13px; box-shadow:var(--shadow),0 0 0 6px #050b15; touch-action:none; outline:none; transition:transform .18s cubic-bezier(.16,1,.3,1), width .12s ease, height .12s ease; transform-origin:center center; }
@@ -66,6 +70,7 @@
     /* Popout Quick Controls Sidebar / Dock */
     .quick-dock { position:absolute; z-index:10; right:10px; top:50%; transform:translateY(-50%); display:flex; align-items:center; transition:transform .22s cubic-bezier(.16,1,.3,1), opacity .22s ease; user-select:none; }
     .quick-dock.collapsed { transform:translateY(-50%) translateX(calc(100% - 22px)); }
+    .quick-dock.is-hidden { display:none; }
     .dock-toggle { width:22px; height:52px; padding:0; display:flex; align-items:center; justify-content:center; background:#112037dd; border:1px solid #2d456a; border-right:none; border-radius:8px 0 0 8px; color:#92abce; cursor:pointer; font-size:14px; backdrop-filter:blur(12px); box-shadow:-4px 0 16px #03081455; transition:background .15s ease, color .15s ease; }
     .dock-toggle:hover { background:#1c3459; color:#fff; }
     .quick-dock.collapsed .dock-toggle { border-right:1px solid #2d456a; border-radius:8px; background:#142742ee; color:#64a8ff; box-shadow:0 4px 18px #01040bee; }
@@ -361,6 +366,8 @@
     const statOrientation = $('#stat-orientation');
     const statAudio = $('#stat-audio');
     const quickDock = $('#quick-controls');
+    const layout = document.querySelector('.layout');
+    const sidebar = layout?.querySelector(':scope > aside');
     const btnDockToggle = $('#btn-dock-toggle');
     const btnRotateScreen = $('#btn-rotate-screen');
     const rotateLabel = $('#rotate-label');
@@ -971,31 +978,19 @@
 
     function updateScreenLayout(w = currentVideoWidth, h = currentVideoHeight) {
       if (!w || !h) return;
-
       currentVideoWidth = Number(w);
       currentVideoHeight = Number(h);
-
-      // The decoder owns the canvas' backing resolution. Do not CSS-rotate it:
-      // scrcpy changes the encoded stream dimensions when Android rotates.
       screen.width = currentVideoWidth;
       screen.height = currentVideoHeight;
       screen.style.transform = 'none';
-
-      const availW = Math.max(160, stage.clientWidth - 132);
-      const availH = Math.max(160, stage.clientHeight - 24);
-      const scale = Math.min(
-        availW / currentVideoWidth,
-        availH / currentVideoHeight,
-        1
-      );
-
+      const stageW = Math.max(160, stage.clientWidth - 16);
+      const stageH = Math.max(160, stage.clientHeight - 16);
+      const scale = Math.min(stageW / currentVideoWidth, stageH / currentVideoHeight, 1);
       screen.style.width = `${Math.max(1, Math.round(currentVideoWidth * scale))}px`;
       screen.style.height = `${Math.max(1, Math.round(currentVideoHeight * scale))}px`;
-
       const landscape = currentVideoWidth > currentVideoHeight;
-      const orientation = landscape ? 'Landscape' :
-        currentVideoWidth < currentVideoHeight ? 'Portrait' : 'Square';
-
+      const orientation = landscape ? 'Landscape' : currentVideoWidth < currentVideoHeight ? 'Portrait' : 'Square';
+      stage.classList.toggle('orientation-landscape', landscape);
       if (rotateLabel) rotateLabel.textContent = orientation;
       if (statOrientation) statOrientation.textContent = orientation;
       logger.info('DISPLAY', `Native stream orientation: ${orientation} (${currentVideoWidth}x${currentVideoHeight})`);
@@ -1752,6 +1747,39 @@
     connectButton.addEventListener('click', connect);
     emptyConnectButton.addEventListener('click', connect);
     disconnectButton.addEventListener('click', disconnect);
+    btnDockToggle.addEventListener('click', () => {
+      quickDock.classList.toggle('collapsed');
+      btnDockToggle.setAttribute('aria-expanded', String(!quickDock.classList.contains('collapsed')));
+      logger.info('UI', `Quick controls ${quickDock.classList.contains('collapsed') ? 'collapsed' : 'expanded'}`);
+    });
+
+    function setSidebarCollapsed(collapsed) {
+      if (!layout || !sidebar) return;
+      layout.classList.toggle('sidebar-collapsed', collapsed);
+      localStorage.setItem('wireframe-sidebar-collapsed', collapsed ? '1' : '0');
+      requestAnimationFrame(() => updateScreenLayout());
+    }
+
+    // Keep the settings sidebar collapsible without touching the scrcpy connection.
+    if (sidebar) {
+      const collapseButton = document.createElement('button');
+      collapseButton.className = 'button ghost small';
+      collapseButton.textContent = 'Collapse';
+      collapseButton.title = 'Collapse stream settings';
+      collapseButton.style.width = '100%';
+      collapseButton.style.marginBottom = '14px';
+      sidebar.insertBefore(collapseButton, sidebar.firstChild);
+      collapseButton.addEventListener('click', () => setSidebarCollapsed(true));
+      if (localStorage.getItem('wireframe-sidebar-collapsed') === '1') setSidebarCollapsed(true);
+    }
+
+    function setNativeOrientation(orientation) {
+      try {
+        if (screen.orientation?.lock) return screen.orientation.lock(orientation).catch(() => {});
+      } catch (_) {}
+      return Promise.resolve();
+    }
+
     $('#btn-fullscreen').addEventListener('click', () => {
       logger.info('UI', 'Toggling fullscreen');
       if (document.fullscreenElement) document.exitFullscreen();
