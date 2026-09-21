@@ -983,9 +983,36 @@
     let serverLog = [];
     let mirrorWindow = null;
     let mirrorWindowPoll = null;
+    let deviceRotation = null;
+    let streamBaseRotation = null;
+    let orientationPoll = null;
+    let orientationPollBusy = false;
 
     function mirrorWindowMarkup() {
       return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Wireframe — Android</title><style>html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#000}body{display:flex;align-items:center;justify-content:center}#host{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#000}canvas{display:block;width:auto;height:auto;max-width:100vw;max-height:100vh;object-fit:contain;touch-action:none;outline:none}</style></head><body><div id="host"></div></body></html>`;
+    }
+
+    function visualRotation() {
+      if (deviceRotation == null || streamBaseRotation == null) return 0;
+      return ((deviceRotation - streamBaseRotation) % 4 + 4) % 4;
+    }
+
+    function visualVideoSize(width = currentVideoWidth, height = currentVideoHeight) {
+      const rotation = visualRotation();
+      return rotation % 2 ? { width: height, height: width } : { width, height };
+    }
+
+    function applyDisplayRotation() {
+      const rotation = visualRotation();
+      const angle = rotation * 90;
+      screen.style.transform = angle ? `rotate(${angle}deg)` : 'none';
+      screen.dataset.rotation = String(rotation);
+      const size = visualVideoSize();
+      if (mirrorWindow && !mirrorWindow.closed) {
+        resizeMirrorWindow(size.width, size.height);
+      }
+      if (rotateLabel) rotateLabel.textContent = rotation === 0 ? (currentVideoWidth > currentVideoHeight ? 'Landscape' : 'Portrait') : `${rotation * 90}°`;
+      if (statOrientation) statOrientation.textContent = rotation === 0 ? (currentVideoWidth > currentVideoHeight ? 'Landscape' : 'Portrait') : `${rotation * 90}°`;
     }
 
     function resizeMirrorWindow(width, height) {
@@ -1004,6 +1031,61 @@
       } catch (error) {
         logger.warn('UI', 'Could not resize the Android screen window', { error: error?.message });
       }
+    }
+
+    async function readDeviceRotation() {
+      if (!adb?.subprocess?.shellProtocol?.isSupported) return null;
+      try {
+        const result = await adb.subprocess.shellProtocol.spawnWaitText(['dumpsys', 'input']);
+        const output = `${result.stdout || ''}\n${result.stderr || ''}`;
+        let match = output.match(/SurfaceOrientation\s*[:=]\s*(\d)/i);
+        if (!match) match = output.match(/surfaceOrientation\s*[:=]\s*(\d)/i);
+        if (!match) {
+          const display = await adb.subprocess.shellProtocol.spawnWaitText(['dumpsys', 'display']);
+          const displayOutput = `${display.stdout || ''}\n${display.stderr || ''}`;
+          match = displayOutput.match(/mCurrentOrientation\s*=\s*(\d)/i) || displayOutput.match(/currentOrientation\s*[:=]\s*(\d)/i);
+        }
+        if (!match) return null;
+        const value = Number(match[1]);
+        return Number.isInteger(value) && value >= 0 && value <= 3 ? value : null;
+      } catch (error) {
+        logger.warn('DISPLAY', 'Could not read Android display rotation', { error: error?.message });
+        return null;
+      }
+    }
+
+    function startOrientationWatcher() {
+      stopOrientationWatcher();
+      orientationPoll = setInterval(async () => {
+        if (orientationPollBusy || !adb || !client) return;
+        orientationPollBusy = true;
+        try {
+          const next = await readDeviceRotation();
+          if (next == null) return;
+          if (deviceRotation == null) {
+            deviceRotation = next;
+            streamBaseRotation = next;
+            applyDisplayRotation();
+            return;
+          }
+          if (next !== deviceRotation) {
+            const previous = deviceRotation;
+            deviceRotation = next;
+            logger.info('DISPLAY', `Android display rotation changed: ${previous} → ${next}`);
+            applyDisplayRotation();
+          }
+        } finally {
+          orientationPollBusy = false;
+        }
+      }, 300);
+    }
+
+    function stopOrientationWatcher() {
+      if (orientationPoll) clearInterval(orientationPoll);
+      orientationPoll = null;
+      orientationPollBusy = false;
+      deviceRotation = null;
+      streamBaseRotation = null;
     }
 
     function restoreScreenToMainWindow() {
@@ -1074,13 +1156,8 @@
       currentVideoHeight = Number(h);
       screen.width = currentVideoWidth;
       screen.height = currentVideoHeight;
-      screen.style.transform = 'none';
-
       const landscape = currentVideoWidth > currentVideoHeight;
-      const orientation = landscape ? 'Landscape' : currentVideoWidth < currentVideoHeight ? 'Portrait' : 'Square';
       stage.classList.toggle('orientation-landscape', landscape);
-      if (rotateLabel) rotateLabel.textContent = orientation;
-      if (statOrientation) statOrientation.textContent = orientation;
 
       if (mirrorWindow && !mirrorWindow.closed) {
         screen.style.width = 'auto';
@@ -1088,7 +1165,7 @@
         screen.style.maxWidth = '100vw';
         screen.style.maxHeight = '100vh';
         screen.style.objectFit = 'contain';
-        resizeMirrorWindow(currentVideoWidth, currentVideoHeight);
+        applyDisplayRotation();
       } else {
         const availableW = Math.max(160, stage.clientWidth - 16);
         const availableH = Math.max(160, stage.clientHeight - 16);
@@ -1096,6 +1173,7 @@
         screen.style.width = `${Math.max(1, Math.round(currentVideoWidth * scale))}px`;
         screen.style.height = `${Math.max(1, Math.round(currentVideoHeight * scale))}px`;
       }
+      applyDisplayRotation();
     }
 
     function handleVideoSizeChange(width, height, source = 'video') {
@@ -1109,6 +1187,7 @@
       currentVideoWidth = w;
       currentVideoHeight = h;
       currentRotation = 0;
+      if (deviceRotation != null) streamBaseRotation = deviceRotation;
       updateScreenLayout(w, h);
 
       if (changed) {
@@ -1381,6 +1460,13 @@
         logger.info('STREAM', 'Attaching video and audio streams...');
         await withTimeout(attachStreams(), 15000, 'opening the video and audio streams');
         updateScreenLayout(currentVideoWidth, currentVideoHeight);
+        const initialRotation = await readDeviceRotation();
+        if (initialRotation != null) {
+          deviceRotation = initialRotation;
+          streamBaseRotation = initialRotation;
+          applyDisplayRotation();
+        }
+        startOrientationWatcher();
 
         setConnected(true);
         setStatus('Connected', 'connected');
@@ -1591,8 +1677,21 @@
       // Android changes from portrait to landscape, the decoded canvas changes
       // dimensions too, so the browser's X/Y coordinates already match the
       // visible frame exactly.
-      const normX = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
-      const normY = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
+      const visualX = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+      const visualY = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
+      const rotation = visualRotation();
+      let normX = visualX;
+      let normY = visualY;
+      if (rotation === 1) {
+        normX = visualY;
+        normY = 1 - visualX;
+      } else if (rotation === 2) {
+        normX = 1 - visualX;
+        normY = 1 - visualY;
+      } else if (rotation === 3) {
+        normX = 1 - visualY;
+        normY = visualX;
+      }
       const x = Math.max(0, Math.min(width, normX * width));
       const y = Math.max(0, Math.min(height, normY * height));
 
@@ -1611,7 +1710,7 @@
           pointerY: Math.round(y),
           videoWidth: width,
           videoHeight: height,
-          rotation: 0,
+          rotation: rotation * 90,
           buttons,
         });
         lastTouchLog = now;
@@ -1810,6 +1909,7 @@
     }
 
     async function cleanup() {
+      stopOrientationWatcher();
       if (mirrorWindow && !mirrorWindow.closed) {
         try { mirrorWindow.close(); } catch (_) {}
       }
@@ -1929,7 +2029,7 @@
       }
       try {
         await client.controller.rotateDevice();
-        logger.info('INPUT', 'Sent scrcpy rotate-device command; waiting for decoder dimensions to update');
+        logger.info('INPUT', 'Sent scrcpy rotate-device command; orientation watcher will update the display window');
         notify('Rotation command sent');
       } catch (error) {
         logger.error('INPUT', 'Failed to rotate Android device', error);
