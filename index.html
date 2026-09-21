@@ -987,6 +987,8 @@
     let streamBaseRotation = null;
     let orientationPoll = null;
     let orientationPollBusy = false;
+    let pendingDeviceRotation = null;
+    let pendingDeviceRotationCount = 0;
 
     function mirrorWindowMarkup() {
       return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Wireframe — Android</title><style>html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#000}body{display:flex;align-items:center;justify-content:center}#host{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#000}canvas{display:block;width:auto;height:auto;max-width:100vw;max-height:100vh;object-fit:contain;touch-action:none;outline:none}</style></head><body><div id="host"></div></body></html>`;
@@ -1036,15 +1038,24 @@
     async function readDeviceRotation() {
       if (!adb?.subprocess?.shellProtocol?.isSupported) return null;
       try {
-        const result = await adb.subprocess.shellProtocol.spawnWaitText(['dumpsys', 'input']);
-        const output = `${result.stdout || ''}\n${result.stderr || ''}`;
-        let match = output.match(/SurfaceOrientation\s*[:=]\s*(\d)/i);
-        if (!match) match = output.match(/surfaceOrientation\s*[:=]\s*(\d)/i);
+        const display = await adb.subprocess.shellProtocol.spawnWaitText(['dumpsys', 'display']);
+        const displayOutput = `${display.stdout || ''}\n${display.stderr || ''}`;
+
+        let match =
+          displayOutput.match(/mCurrentOrientation\s*=\s*(\d)/i) ||
+          displayOutput.match(/currentOrientation\s*[:=]\s*(\d)/i) ||
+          displayOutput.match(/mDisplayRotation\s*=\s*ROTATION_(\d)/i) ||
+          displayOutput.match(/mRotation\s*=\s*ROTATION_(\d)/i);
+
         if (!match) {
-          const display = await adb.subprocess.shellProtocol.spawnWaitText(['dumpsys', 'display']);
-          const displayOutput = `${display.stdout || ''}\n${display.stderr || ''}`;
-          match = displayOutput.match(/mCurrentOrientation\s*=\s*(\d)/i) || displayOutput.match(/currentOrientation\s*[:=]\s*(\d)/i);
+          const windowDump = await adb.subprocess.shellProtocol.spawnWaitText(['dumpsys', 'window', 'displays']);
+          const windowOutput = `${windowDump.stdout || ''}\n${windowDump.stderr || ''}`;
+          match =
+            windowOutput.match(/mRotation\s*=\s*ROTATION_(\d)/i) ||
+            windowOutput.match(/mCurrentRotation\s*=\s*ROTATION_(\d)/i) ||
+            windowOutput.match(/mRotation\s*[:=]\s*(\d)/i);
         }
+
         if (!match) return null;
         const value = Number(match[1]);
         return Number.isInteger(value) && value >= 0 && value <= 3 ? value : null;
@@ -1056,24 +1067,50 @@
 
     function startOrientationWatcher() {
       stopOrientationWatcher();
+      pendingDeviceRotation = null;
+      pendingDeviceRotationCount = 0;
+
       orientationPoll = setInterval(async () => {
         if (orientationPollBusy || !adb || !client) return;
         orientationPollBusy = true;
         try {
           const next = await readDeviceRotation();
           if (next == null) return;
+
           if (deviceRotation == null) {
             deviceRotation = next;
             streamBaseRotation = next;
+            pendingDeviceRotation = null;
+            pendingDeviceRotationCount = 0;
             applyDisplayRotation();
             return;
           }
-          if (next !== deviceRotation) {
-            const previous = deviceRotation;
-            deviceRotation = next;
-            logger.info('DISPLAY', `Android display rotation changed: ${previous} → ${next}`);
-            applyDisplayRotation();
+
+          if (next === deviceRotation) {
+            pendingDeviceRotation = null;
+            pendingDeviceRotationCount = 0;
+            return;
           }
+
+          if (pendingDeviceRotation === next) {
+            pendingDeviceRotationCount++;
+          } else {
+            pendingDeviceRotation = next;
+            pendingDeviceRotationCount = 1;
+          }
+
+          // Android can briefly report an intermediate/input rotation while
+          // the display is settling. Require three consecutive readings
+          // before changing the visual rotation, preventing the screen from
+          // visibly flipping 0° → 90° → 0° during one physical rotation.
+          if (pendingDeviceRotationCount < 3) return;
+
+          const previous = deviceRotation;
+          deviceRotation = next;
+          pendingDeviceRotation = null;
+          pendingDeviceRotationCount = 0;
+          logger.info('DISPLAY', `Android display rotation changed: ${previous} → ${next}`);
+          applyDisplayRotation();
         } finally {
           orientationPollBusy = false;
         }
@@ -1084,6 +1121,8 @@
       if (orientationPoll) clearInterval(orientationPoll);
       orientationPoll = null;
       orientationPollBusy = false;
+      pendingDeviceRotation = null;
+      pendingDeviceRotationCount = 0;
       deviceRotation = null;
       streamBaseRotation = null;
     }
