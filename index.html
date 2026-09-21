@@ -1187,7 +1187,18 @@
       currentVideoWidth = w;
       currentVideoHeight = h;
       currentRotation = 0;
-      if (deviceRotation != null) streamBaseRotation = deviceRotation;
+
+      // Do not reset the visual-rotation baseline just because the decoder
+      // reports the same stream dimensions again. Android can keep sending
+      // the same portrait-sized H.264 stream while its display rotation
+      // changes. Resetting the baseline on every size callback makes the
+      // screen rotate for a frame and then immediately snap back. Only adopt
+      // a new baseline when the actual stream dimensions changed, meaning
+      // scrcpy itself has switched the encoded surface orientation.
+      if (changed && deviceRotation != null) {
+        streamBaseRotation = deviceRotation;
+      }
+
       updateScreenLayout(w, h);
 
       if (changed) {
