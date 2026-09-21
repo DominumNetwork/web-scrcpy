@@ -1326,7 +1326,6 @@
         requireCompatibleBrowser();
         setConnecting(true);
         serverLog = [];
-        openMirrorWindow();
         setStatus('Choose USB device', 'busy');
         notify('Select your phone in the browser chooser. Keep the phone unlocked.', 'warn');
 
@@ -1334,8 +1333,6 @@
         if (!device) {
           setStatus('No device');
           logger.info('CONNECT', 'User cancelled device selection');
-          if (mirrorWindow && !mirrorWindow.closed) mirrorWindow.close();
-          restoreScreenToMainWindow();
           return;
         }
 
@@ -1898,8 +1895,20 @@
 
     const btnScreenWindow = $('#btn-screen-window');
     const btnReopenScreen = $('#btn-reopen-screen');
-    btnScreenWindow.addEventListener('click', () => openMirrorWindow());
-    btnReopenScreen.addEventListener('click', () => openMirrorWindow());
+    btnScreenWindow.addEventListener('click', () => {
+      if (!client) {
+        notify('Connect an Android device first.', 'warn');
+        return;
+      }
+      openMirrorWindow();
+    });
+    btnReopenScreen.addEventListener('click', () => {
+      if (!client) {
+        notify('Connect an Android device first.', 'warn');
+        return;
+      }
+      openMirrorWindow();
+    });
 
     window.addEventListener('resize', () => {
       requestAnimationFrame(() => updateScreenLayout());
