@@ -188,13 +188,17 @@ kbd{font:12px var(--mono);padding:1px 7px;border:1px solid var(--line-2);border-
       <label class="field"><span>Phone screen</span>
         <select data-s="screen"><option value="on">Stay on</option><option value="off">Turn off</option></select></label>
     </div>
-    <label class="field"><span>Show touches on phone</span>
-      <select data-s="touches"><option value="off">Off</option><option value="on">On</option></select></label>
+    <div class="row2">
+      <label class="field"><span>Show touches</span>
+        <select data-s="touches"><option value="off">Off</option><option value="on">On</option></select></label>
+      <label class="field"><span>Rotation</span>
+        <select data-s="rotation"><option value="auto">Follow phone</option><option value="off">Ignore</option></select></label>
+    </div>
 
     <h3>Keyboard</h3>
     <label class="field"><span>Typing mode</span>
-      <select data-s="kbmode"><option value="text">Text — types characters</option><option value="raw">Raw keys — for games</option></select></label>
-    <p class="note">Click the phone to capture the keyboard. Settings apply on the next connect.</p>
+      <select data-s="kbmode"><option value="text">Text — types characters</option><option value="raw">Game keyboard (real key device)</option></select></label>
+    <p class="note">Click the phone to capture the keyboard. Game keyboard sends keys like a physical keyboard (WASD, arrows, Shift…); use right-click for Back. Video settings apply on the next connect.</p>
 
     <h3>Connection</h3>
     <div class="actions">
@@ -337,7 +341,7 @@ function report() {
 /* =====================================================================
    Settings
    ===================================================================== */
-const DEFAULTS = { server: 'v3.1', maxSize: '1280', fps: '30', bitrate: '8', codec: 'h264', audio: 'off', screen: 'on', touches: 'off', kbmode: 'text' };
+const DEFAULTS = { server: 'v3.1', maxSize: '1280', fps: '30', bitrate: '8', codec: 'h264', audio: 'off', screen: 'on', touches: 'off', kbmode: 'text', rotation: 'auto' };
 let cfg = { ...DEFAULTS };
 try { cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('wireframe.cfg') || '{}') }; } catch {}
 document.querySelectorAll('[data-s]').forEach((el) => {
@@ -345,7 +349,7 @@ document.querySelectorAll('[data-s]').forEach((el) => {
   el.addEventListener('change', () => {
     cfg[el.dataset.s] = el.value;
     try { localStorage.setItem('wireframe.cfg', JSON.stringify(cfg)); } catch {}
-    if (el.dataset.s === 'kbmode') refreshKbdChip();
+    if (el.dataset.s === 'kbmode') { refreshKbdChip(); applyKbMode(); }
   });
 });
 
@@ -355,7 +359,7 @@ document.querySelectorAll('[data-s]').forEach((el) => {
 const S = {
   busy: false, device: null, transport: null, adb: null, client: null, decoder: null, video: null,
   vw: 0, vh: 0, canvas: null, audioCtx: null, nextAudio: 0, screenOff: false,
-  pressed: new Set(), pointers: new Map(), timers: [], cancel: null, freshKey: false, token: 0,
+  pressed: new Set(), pointers: new Map(), hid: { ready: false, failed: false, mods: 0, keys: [] }, restarting: false, rotTimer: null, baseRot: null, baseLand: false, rotMode: 0, timers: [], cancel: null, freshKey: false, token: 0,
 };
 
 function setStatus(text, kind = '') {
@@ -641,18 +645,11 @@ async function connect({ freshKey = false, forcePicker = false } = {}) {
     if (cfg.audio === 'on') ensureAudio();
     const options = buildOptions();
     const client = await withTimeout(AdbScrcpyClient.start(S.adb, DefaultServerPath, options), 30000, 'starting scrcpy on the phone');
-    S.client = client;
-    pumpServerOutput(client);
-    client.exited.then(() => { if (S.client === client) lost('The mirror service on the phone stopped.'); }, () => {});
-    await withTimeout(attachVideo(client), 20000, 'opening the video stream');
-    attachAudio(client).catch((e) => L.w('AUDIO', e?.message || e));
-    attachClipboard(client);
-    if (cfg.screen === 'off') { await client.controller?.setScreenPowerMode(0).catch(() => {}); S.screenOff = true; syncScreenOffButton(); }
+    await bringUp(client);
 
     hideCard();
     setStatus(device.raw.productName || 'Connected', 'live');
     L.i('CONNECT', 'Mirror live');
-    startStats();
     focusKeyboard();
     dockHidden = false;
   } catch (e) {
@@ -666,6 +663,90 @@ async function connect({ freshKey = false, forcePicker = false } = {}) {
     S.busy = false;
     render();
   }
+}
+
+async function bringUp(client) {
+  S.client = client;
+  pumpServerOutput(client);
+  client.exited.then(() => { if (S.client === client) lost('The mirror service on the phone stopped.'); }, () => {});
+  await withTimeout(attachVideo(client), 20000, 'opening the video stream');
+  attachAudio(client).catch((e) => L.w('AUDIO', e?.message || e));
+  attachClipboard(client);
+  if (cfg.screen === 'off') { await client.controller?.setScreenPowerMode(0).catch(() => {}); S.screenOff = true; syncScreenOffButton(); }
+  S.hid = newHid();
+  if (cfg.kbmode === 'raw') hidQueue(hidCreate);
+  startStats();
+  startRotationWatch();
+}
+
+/* ---------- rotation ----------
+   Some phones keep encoding the original orientation and letterbox the rotated
+   screen inside it. We read the phone's real rotation and, when the stream no
+   longer matches it, restart the mirror so it is encoded at the new orientation. */
+async function readRotation() {
+  const sp = S.adb?.subprocess?.shellProtocol?.isSupported ? S.adb.subprocess.shellProtocol : S.adb?.subprocess?.noneProtocol;
+  if (!sp) return null;
+  const probes = [
+    ['dumpsys display | grep -m4 -E "mCurrentOrientation"', /mCurrentOrientation\s*=\s*(\d)/i],
+    ['dumpsys window displays | grep -m4 -E "mCurrentRotation|mRotation"', /m(?:Current)?Rotation\s*[:=]\s*(?:ROTATION_)?(\d+)/i],
+  ];
+  const order = S.rotMode ? [probes[S.rotMode - 1], probes[2 - S.rotMode]] : probes;
+  for (const [cmd, re] of order) {
+    try {
+      const r = await sp.spawnWaitText(cmd);
+      const out = typeof r === 'string' ? r : `${r.stdout || ''}\n${r.stderr || ''}`;
+      const m = out.match(re);
+      if (m) { S.rotMode = probes.findIndex((p) => p[0] === cmd) + 1; const v = Number(m[1]); const deg = v > 3 ? (v / 90) & 3 : v; return deg; }
+    } catch (e) { L.d('ROT', e?.message || e); }
+  }
+  return null;
+}
+function stopRotationWatch() { clearInterval(S.rotTimer); S.rotTimer = null; }
+async function startRotationWatch() {
+  stopRotationWatch();
+  if (cfg.rotation !== 'auto') return;
+  const client = S.client;
+  const r = await readRotation();
+  if (r == null || S.client !== client) { if (r == null) L.w('ROT', 'Could not read phone rotation; auto-rotate disabled for this session'); return; }
+  S.baseRot = r; S.baseLand = S.vw > S.vh;
+  L.i('ROT', `Baseline rotation ${r * 90}°, stream ${S.baseLand ? 'landscape' : 'portrait'}`);
+  let mismatch = 0, busy = false;
+  S.rotTimer = setInterval(async () => {
+    if (busy || S.restarting || S.client !== client || !S.vw) return;
+    busy = true;
+    try {
+      const cur = await readRotation();
+      if (cur == null || S.client !== client) return;
+      const expectLand = S.baseLand !== (((cur - S.baseRot) & 1) === 1);
+      if (expectLand !== (S.vw > S.vh)) { if (++mismatch >= 2) { mismatch = 0; restartStream(`phone is now ${cur * 90}°`); } }
+      else mismatch = 0;
+    } finally { busy = false; }
+  }, 800);
+}
+async function restartStream(reason) {
+  if (S.restarting || !S.client || !S.adb) return;
+  S.restarting = true;
+  const old = S.client, token = S.token;
+  L.i('ROT', `Restarting stream: ${reason}`);
+  setStatus('Rotating…', 'busy');
+  stopRotationWatch(); stopStats(); releaseAllInput();
+  S.client = null; S.vw = 0; S.vh = 0;
+  try { if (S.hid.ready) await old.controller?.uHidDestroy(HID_ID).catch(() => {}); } catch {}
+  try { await old.controller?.close?.(); } catch {}
+  try { S.decoder?.dispose?.(); } catch {}
+  S.decoder = null;
+  await Promise.race([old.exited.catch(() => {}), sleep(2500)]);
+  try {
+    if (token !== S.token) return;
+    const client = await withTimeout(AdbScrcpyClient.start(S.adb, DefaultServerPath, buildOptions()), 30000, 'restarting scrcpy');
+    if (token !== S.token) return;
+    await bringUp(client);
+    setStatus(S.device?.raw?.productName || 'Connected', 'live');
+    focusKeyboard();
+  } catch (e) {
+    S.restarting = false;
+    if (token === S.token) await lost('Could not restart the mirror after rotating: ' + (e?.message || e), true);
+  } finally { S.restarting = false; }
 }
 
 async function pumpServerOutput(client) {
@@ -774,12 +855,14 @@ function stopStats() { clearInterval(S.statsTimer); }
 
 /* ---------- teardown ---------- */
 async function teardown() {
-  stopStats();
+  stopStats(); stopRotationWatch();
   S.timers.forEach((t) => { clearTimeout(t); clearInterval(t); });
   S.timers = [];
   releaseAllInput();
   const { client, adb, transport, decoder, device } = S;
   S.client = null; S.adb = null; S.transport = null; S.decoder = null; S.video = null; S.vw = 0; S.vh = 0; S.screenOff = false;
+  try { if (client?.controller && S.hid.ready) await client.controller.uHidDestroy(HID_ID).catch(() => {}); } catch {}
+  S.hid = newHid();
   try { if (client?.controller && cfg.screen === 'off') await client.controller.setScreenPowerMode(2).catch(() => {}); } catch {}
   try { await client?.controller?.close?.(); } catch {}
   try { decoder?.dispose?.(); } catch {}
@@ -803,8 +886,8 @@ async function disconnect() {
   render();
   L.i('CONNECT', 'Disconnected');
 }
-async function lost(reason) {
-  if (!S.client) return;
+async function lost(reason, force = false) {
+  if (!S.client && !force) return;
   L.e('CONNECT', reason);
   S.token++;
   await teardown();
@@ -932,15 +1015,82 @@ function focusKeyboard() { kbd.focus({ preventScroll: true }); }
 function refreshKbdChip() {
   const el = $('#st-kbd');
   const on = document.activeElement === kbd && !!S.client;
-  el.textContent = on ? (cfg.kbmode === 'raw' ? 'Keyboard: raw keys' : 'Keyboard: typing') : 'Keyboard idle';
+  el.textContent = on ? (cfg.kbmode === 'raw' ? 'Keyboard: game' : 'Keyboard: typing') : 'Keyboard idle';
   el.classList.toggle('on', on);
 }
 kbd.addEventListener('focus', refreshKbdChip);
 kbd.addEventListener('blur', () => { releaseAllInput(); refreshKbdChip(); });
 
+/* ---------- game keyboard: virtual HID device (scrcpy UHID) ----------
+   Games ignore injected key events but accept a real keyboard device. */
+const HID_ID = 1;
+const HID_DESC = new Uint8Array([0x05,0x01,0x09,0x06,0xa1,0x01,0x05,0x07,0x19,0xe0,0x29,0xe7,0x15,0x00,0x25,0x01,0x75,0x01,0x95,0x08,0x81,0x02,0x95,0x01,0x75,0x08,0x81,0x01,0x05,0x08,0x19,0x01,0x29,0x05,0x95,0x05,0x75,0x01,0x91,0x02,0x95,0x01,0x75,0x03,0x91,0x01,0x05,0x07,0x19,0x00,0x29,0x65,0x15,0x00,0x25,0x65,0x75,0x08,0x95,0x06,0x81,0x00,0xc0]);
+const HID_USAGE = {
+  Enter: 0x28, Escape: 0x29, Backspace: 0x2a, Tab: 0x2b, Space: 0x2c, Minus: 0x2d, Equal: 0x2e, BracketLeft: 0x2f, BracketRight: 0x30,
+  Backslash: 0x31, Semicolon: 0x33, Quote: 0x34, Backquote: 0x35, Comma: 0x36, Period: 0x37, Slash: 0x38, CapsLock: 0x39,
+  PrintScreen: 0x46, ScrollLock: 0x47, Pause: 0x48, Insert: 0x49, Home: 0x4a, PageUp: 0x4b, Delete: 0x4c, End: 0x4d, PageDown: 0x4e,
+  ArrowRight: 0x4f, ArrowLeft: 0x50, ArrowDown: 0x51, ArrowUp: 0x52, NumLock: 0x53, NumpadDivide: 0x54, NumpadMultiply: 0x55,
+  NumpadSubtract: 0x56, NumpadAdd: 0x57, NumpadEnter: 0x58, NumpadDecimal: 0x63, IntlBackslash: 0x64, ContextMenu: 0x65,
+};
+for (let i = 0; i < 26; i++) HID_USAGE['Key' + String.fromCharCode(65 + i)] = 0x04 + i;
+for (let i = 1; i <= 9; i++) { HID_USAGE['Digit' + i] = 0x1d + i; HID_USAGE['Numpad' + i] = 0x58 + i; }
+HID_USAGE.Digit0 = 0x27; HID_USAGE.Numpad0 = 0x62;
+for (let i = 1; i <= 12; i++) HID_USAGE['F' + i] = 0x39 + i;
+const HID_MOD = { ControlLeft: 1, ShiftLeft: 2, AltLeft: 4, MetaLeft: 8, ControlRight: 16, ShiftRight: 32, AltRight: 64, MetaRight: 128 };
+function newHid() { return { ready: false, failed: false, mods: 0, keys: [] }; }
+let hidChain = Promise.resolve();
+const hidQueue = (fn) => { hidChain = hidChain.then(fn).catch((e) => L.d('HID', e?.message || e)); };
+async function hidCreate() {
+  const h = S.hid;
+  if (h.ready || h.failed || !S.client?.controller) return;
+  try {
+    await S.client.controller.uHidCreate({ id: HID_ID, vendorId: 0, productId: 0, name: 'Wireframe Keyboard', data: HID_DESC });
+    h.ready = true;
+    L.i('HID', 'Virtual keyboard created');
+  } catch (e) {
+    h.failed = true;
+    L.w('HID', `Virtual keyboard unavailable (${e?.message || e}); using key events instead`);
+    toast('Game keyboard needs scrcpy v2.4+. Falling back to key events.', true);
+  }
+}
+async function hidFlush() {
+  const h = S.hid;
+  if (!S.client?.controller || h.failed) return;
+  if (!h.ready) await hidCreate();
+  if (!h.ready) return;
+  const rep = new Uint8Array(8);
+  rep[0] = h.mods;
+  h.keys.slice(0, 6).forEach((k, i) => (rep[2 + i] = k));
+  await S.client.controller.uHidInput({ id: HID_ID, data: rep });
+}
+function hidKey(e, down) {
+  const h = S.hid;
+  if (h.failed) return false;
+  const mod = HID_MOD[e.code], use = HID_USAGE[e.code];
+  if (mod === undefined && use === undefined) return false;
+  if (mod !== undefined) h.mods = down ? (h.mods | mod) : (h.mods & ~mod);
+  else {
+    const i = h.keys.indexOf(use);
+    if (down) { if (i >= 0) return true; h.keys.push(use); }
+    else if (i >= 0) h.keys.splice(i, 1);
+    else return true;
+  }
+  hidQueue(hidFlush);
+  return true;
+}
+function applyKbMode() {
+  if (!S.client) return;
+  if (cfg.kbmode === 'raw') hidQueue(hidCreate);
+  else if (S.hid.ready) { hidQueue(async () => { await S.client?.controller?.uHidDestroy(HID_ID); S.hid = newHid(); }); }
+}
+
 kbd.addEventListener('keydown', (e) => {
   if (!S.client || e.isComposing || e.keyCode === 229) return;
   const raw = cfg.kbmode === 'raw';
+  if (raw && e.code !== 'F11' && e.code !== 'F12') {
+    if (e.code === 'Escape' && $('#logs').classList.contains('open')) { e.preventDefault(); return toggleLogs(false); }
+    if (hidKey(e, true)) { e.preventDefault(); return; }
+  }
   const mod = e.ctrlKey || e.metaKey || e.altKey;
   if ((e.ctrlKey || e.metaKey) && e.code === 'KeyV' && !raw) return;          // handled by paste event
   const code = KEYMAP[e.code];
@@ -952,6 +1102,7 @@ kbd.addEventListener('keydown', (e) => {
   keyEvent(true, code, meta(e), e.repeat ? 1 : 0);
 });
 kbd.addEventListener('keyup', (e) => {
+  if (cfg.kbmode === 'raw' && S.client && hidKey(e, false)) { e.preventDefault(); return; }
   const code = KEYMAP[e.code];
   if (code === undefined || !S.pressed.has(code)) return;
   e.preventDefault();
@@ -986,6 +1137,7 @@ kbd.addEventListener('paste', (e) => {
   if (S.client && t) pasteText(t).catch((err) => L.d('KEY', err?.message || err));
 });
 function releaseAllInput() {
+  if (S.hid.keys.length || S.hid.mods) { S.hid.keys = []; S.hid.mods = 0; hidQueue(hidFlush); }
   for (const code of S.pressed) keyEvent(false, code);
   S.pressed.clear();
   S.pointers.clear();
